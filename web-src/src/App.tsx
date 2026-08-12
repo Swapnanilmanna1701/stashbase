@@ -32,7 +32,7 @@ import { EditorHistoryNavigator } from './components/EditorHistoryNavigator';
 import { DocumentOutlineProvider } from './components/DocumentOutlineContext';
 import { ErrorBoundary, LazyLoadBoundary, lazyWithRetry } from './components/ErrorBoundary';
 import { OverlayStackProvider } from './components/OverlayStack';
-import { ReportBugDialog } from './components/ReportBugDialog';
+import { ReportBugLauncher } from './components/ReportBugLauncher';
 import { AppProvider, useApp } from './store/AppContext';
 import {
   clampChatWidth,
@@ -87,7 +87,7 @@ export function App() {
           </ErrorBoundary>
         </OverlayStackProvider>
       </ErrorBoundary>
-      <ReportBugDialog />
+      <Suspense fallback={null}><ReportBugLauncher /></Suspense>
     </>
   );
 }

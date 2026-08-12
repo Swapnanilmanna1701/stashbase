@@ -47,7 +47,3 @@ export interface ReportBugBridge {
 export function reportBugBridge(): ReportBugBridge | undefined {
   return (window as unknown as { electron?: { reportBug?: ReportBugBridge } }).electron?.reportBug;
 }
-
-export function requestBugReport(errorDetails?: string): void {
-  window.dispatchEvent(new CustomEvent('stashbase-report-bug', { detail: { errorDetails } }));
-}

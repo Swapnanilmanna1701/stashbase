@@ -8,10 +8,12 @@ const manifestPath = path.join(outputRoot, '.vite', 'manifest.json');
 /* Guardrail against a heavy module slipping into the always-loaded shell,
  * not a freeze on shell features. Raised 400 → 416 KiB when the activity
  * rail became the titlebar controls + a sidebar Settings row: that work is
- * eager chrome by definition, and it landed with under 1 KiB of headroom
- * left. Raise it only for shell UI that must load with the window —
+ * eager chrome by definition. Raised 416 → 417 KiB for the always-on bug
+ * report launcher that preserves native-menu and crash-recovery entry; the
+ * controller and review surface remain dynamic entries below. Raise it only
+ * for shell UI that must load with the window —
  * anything a user can open on demand belongs in a dynamic entry above. */
-const initialJsBudgetBytes = 416 * 1024;
+const initialJsBudgetBytes = 417 * 1024;
 const expectedEntries = [
   'src/components/ChatPane.tsx',
   'src/components/CrepeDocument.tsx',
@@ -27,6 +29,7 @@ const expectedEntries = [
   'src/components/EmbeddingSetupCallout.tsx',
   'src/components/embedder/RequireApiKeyModal.tsx',
   'src/components/ReportBugSurface.tsx',
+  'src/components/ReportBugDialog.tsx',
 ];
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));

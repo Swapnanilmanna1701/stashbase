@@ -33,9 +33,12 @@ test('report dialog participates in overlay ownership and exposes error review',
 
 test('report controller stays eager while its presentation loads on demand', () => {
   const controller = fs.readFileSync(path.join(process.cwd(), 'web-src/src/components/ReportBugDialog.tsx'), 'utf8');
+  const launcher = fs.readFileSync(path.join(process.cwd(), 'web-src/src/components/ReportBugLauncher.tsx'), 'utf8');
   assert.match(controller, /lazyWithRetry\(\(\) => import\('\.\/ReportBugSurface'\)\)/);
   assert.match(controller, /state\.open && <LazyReportBugSurface/);
-  assert.match(controller, /bridge\?\.onOpen/);
+  assert.match(launcher, /lazyWithRetry\(\(\) => import\('\.\/ReportBugDialog'\)\)/);
+  assert.match(launcher, /bridge\?\.onOpen/);
+  assert.match(launcher, /stashbase-report-bug/);
 });
 
 test('only the latest overlapping preparation request may update the dialog', () => {
@@ -62,23 +65,22 @@ test('capture completes before the report review overlay becomes visible', () =>
 test('a root recovery boundary covers providers and the independently isolated report surface', () => {
   const app = fs.readFileSync(path.join(process.cwd(), 'web-src/src/App.tsx'), 'utf8');
   assert.match(app, /<ErrorBoundary>\s*<OverlayStackProvider>/);
-  assert.match(app, /<\/ErrorBoundary>\s*<ReportBugDialog \/>/);
+  assert.match(app, /<\/ErrorBoundary>\s*<ReportBugLauncher \/>/);
 });
 
-test('mounted report controller handles both entry events, hides capture, forwards reviewed controls, and locks actions', async (t) => {
+test('mounted report controller prepares immediately, hides capture, forwards reviewed controls, and locks actions', async () => {
   const previousWindow = globalThis.window;
   const reactGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
   const previousActEnvironment = reactGlobal.IS_REACT_ACT_ENVIRONMENT;
   reactGlobal.IS_REACT_ACT_ENVIRONMENT = true;
   const eventTarget = new EventTarget() as Window & typeof globalThis;
-  let nativeOpen = () => {};
   const prepareResolvers: Array<(value: ReportDraft) => void> = [];
   const actionInputs: Array<{ kind: string; input: unknown }> = [];
   let resolveSave = (_value: boolean) => {};
   const savePending = new Promise<boolean>((resolve) => { resolveSave = resolve; });
   Object.assign(eventTarget, {
     electron: { reportBug: {
-      onOpen: (handler: () => void) => { nativeOpen = handler; return () => {}; },
+      onOpen: () => () => {},
       prepare: () => new Promise<ReportDraft>((resolve) => prepareResolvers.push(resolve)),
       copy: async (input: unknown) => { actionInputs.push({ kind: 'copy', input }); return true; },
       save: (input: unknown) => { actionInputs.push({ kind: 'save', input }); return savePending; },
@@ -97,13 +99,13 @@ test('mounted report controller handles both entry events, hides capture, forwar
   }
   let renderer: ReactTestRenderer;
   await act(async () => { renderer = create(React.createElement(ReportBugController, {
+    initialErrorDetails: '',
     children: (value: ReportBugControllerState) => {
       state = value;
       return React.createElement(TestBoundary, { key: value.surfaceGeneration }, value.open && crashPresentation ? React.createElement(CrashingPresentation) : null);
     },
   })); });
 
-  await act(async () => { nativeOpen(); });
   assert.equal(state?.open, false);
   assert.equal(prepareResolvers.length, 1);
   crashPresentation = true;
@@ -114,16 +116,13 @@ test('mounted report controller handles both entry events, hides capture, forwar
   let saving: Promise<void> | undefined;
   await act(async () => { saving = state?.act('save'); });
   assert.equal(state?.busy, true);
-  await act(async () => { await state?.act('submit'); nativeOpen(); });
+  await act(async () => { await state?.act('submit'); });
   assert.equal(actionInputs.length, 1);
   assert.equal(prepareResolvers.length, 1);
   assert.deepEqual(actionInputs[0], { kind: 'save', input: { id: 'report-1', happened: 'Frozen', expected: '', steps: '', includeScreenshot: false, includeLogs: true, includeErrorDetails: true } });
   await act(async () => { resolveSave(true); await saving; });
   assert.equal(state?.busy, false);
 
-  await act(async () => { eventTarget.dispatchEvent(new CustomEvent('stashbase-report-bug', { detail: { errorDetails: 'boundary boom' } })); });
-  assert.equal(state?.open, false);
-  assert.equal(prepareResolvers.length, 2);
   await act(async () => { renderer.unmount(); });
   Object.defineProperty(globalThis, 'window', { configurable: true, value: previousWindow });
   reactGlobal.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;

@@ -48,7 +48,10 @@ export interface ReportBugControllerState {
   close: () => void;
 }
 
-export function ReportBugController({ children }: { children: (state: ReportBugControllerState) => ReactNode }) {
+export function ReportBugController({ children, initialErrorDetails }: {
+  children: (state: ReportBugControllerState) => ReactNode;
+  initialErrorDetails?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ReportDraft | null>(null);
   const [form, setForm] = useState<ReportFormState>(() => initialReportFormState());
@@ -87,11 +90,8 @@ export function ReportBugController({ children }: { children: (state: ReportBugC
   }
 
   useEffect(() => {
-    const bridge = reportBugBridge();
-    const unsubscribe = bridge?.onOpen(() => { void prepare(); });
-    const listener = (event: Event) => { void prepare((event as CustomEvent<{ errorDetails?: string }>).detail?.errorDetails || ''); };
-    window.addEventListener('stashbase-report-bug', listener);
-    return () => { unsubscribe?.(); window.removeEventListener('stashbase-report-bug', listener); };
+    void prepare(initialErrorDetails);
+    return () => requests.current.invalidate();
   }, []);
 
   const input = (): ReportInput => ({ id: draft!.id, ...form });
@@ -113,8 +113,8 @@ export function ReportBugController({ children }: { children: (state: ReportBugC
   });
 }
 
-export function ReportBugDialog() {
-  return <ReportBugController>{(state) => <ErrorBoundary key={state.surfaceGeneration}>
+export default function ReportBugDialog({ initialErrorDetails = '' }: { initialErrorDetails?: string }) {
+  return <ReportBugController initialErrorDetails={initialErrorDetails}>{(state) => <ErrorBoundary key={state.surfaceGeneration}>
     <Suspense fallback={null}>{state.open && <LazyReportBugSurface {...state} />}</Suspense>
   </ErrorBoundary>}</ReportBugController>;
 }
