@@ -25,6 +25,7 @@ const expectedEntries = [
   'src/components/SemanticIndexingNotice.tsx',
   'src/components/UnsupportedFilesCallout.tsx',
   'src/components/embedder/RequireApiKeyModal.tsx',
+  'src/components/ReportBugSurface.tsx',
 ];
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));

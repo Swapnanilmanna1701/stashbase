@@ -21,7 +21,7 @@ test('every report opening starts with fresh descriptions and privacy choices', 
 });
 
 test('report dialog participates in overlay ownership and exposes error review', () => {
-  const component = fs.readFileSync(path.join(process.cwd(), 'web-src/src/components/ReportBugDialog.tsx'), 'utf8');
+  const component = fs.readFileSync(path.join(process.cwd(), 'web-src/src/components/ReportBugSurface.tsx'), 'utf8');
   assert.match(component, /useOverlayLayer\(open\)/);
   assert.match(component, /!nextOpen && !busy && layer\.isTopmost/);
   assert.match(component, /Include renderer error details/);
@@ -29,6 +29,13 @@ test('report dialog participates in overlay ownership and exposes error review',
   assert.doesNotMatch(component, /<textarea|<input/);
   assert.match(component, /<Textarea disabled=\{busy\} maxLength=\{GITHUB_FIELD_MAX_LENGTH\}/);
   assert.match(component, /<Checkbox disabled=\{busy\} checked=/);
+});
+
+test('report controller stays eager while its presentation loads on demand', () => {
+  const controller = fs.readFileSync(path.join(process.cwd(), 'web-src/src/components/ReportBugDialog.tsx'), 'utf8');
+  assert.match(controller, /lazyWithRetry\(\(\) => import\('\.\/ReportBugSurface'\)\)/);
+  assert.match(controller, /state\.open && <LazyReportBugSurface/);
+  assert.match(controller, /bridge\?\.onOpen/);
 });
 
 test('only the latest overlapping preparation request may update the dialog', () => {
