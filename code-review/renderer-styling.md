@@ -26,8 +26,8 @@ this file records the mechanics a change must respect.
    `muted-foreground` is subdued text. The `dark:` variant is redefined to
    follow `data-theme`; never rely on the raw media query.
 3. **Primitives** (`web-src/src/components/ui/`) — shadcn-generated Base UI
-   adapters (button, input, segmented-control, card, dialog, alert-dialog,
-   menu, popover, toast, tooltip, status). Feature code must not recreate
+   adapters (button, input, textarea, checkbox, segmented-control, card,
+   dialog, alert-dialog, menu, popover, toast, tooltip, status). Feature code must not recreate
    their focus, Escape, outside-press, collision, timer, or announcement
    behavior, and new buttons/inputs/selectable groups use these instead of
    bespoke classes.

@@ -203,3 +203,17 @@ editing, search, and Agent context as the rest of the folder.
 
 **Related areas:** [Local File Workspace](design/library.md),
 [Search and Retrieval](design/search.md)
+## 5. Report a Bug Without Automatic Upload
+
+1. The user chooses **Help → Report Bug…**, including when normal renderer UI
+   is partly broken.
+2. StashBase locally prepares a current-window screenshot, bounded redacted log
+   excerpt, basic diagnostics, and—in renderer recovery—the captured error.
+3. The user reviews the artifacts, excludes anything unwanted, and describes
+   what happened, what they expected, and how to reproduce it.
+4. The user may copy or save the report without GitHub. Continuing sends the
+   reviewed text into the prefilled Bug Report form in the system browser,
+   copies the complete summary, and reveals files that the user may drag into
+   the issue before submitting.
+
+**Related area:** [Feedback and Bug Reports](design/feedback.md)

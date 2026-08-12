@@ -37,6 +37,7 @@ directory or a replacement for issues and source code.
 | [Preparation](design/preparation.md) | Format conversion and readiness | Recovery, diagnostics, and format support |
 | [Search and Retrieval](design/search.md) | Keyword, semantic, and MCP retrieval | Search clarity and result quality |
 | [Agent Panel](design/agent-panel.md) | Built-in Claude/Codex side panel | Safe, compact agent collaboration |
+| [Feedback and Bug Reports](design/feedback.md) | Privacy-safe local report preparation and user-controlled sharing | Actionable diagnostics without telemetry |
 
 ## How To Maintain These Docs
 

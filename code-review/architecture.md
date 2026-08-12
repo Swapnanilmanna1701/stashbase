@@ -59,6 +59,53 @@ send decisions; they never duplicate scanning, hashing, or freshness rules.
 
 The **MCP server** is a Node process. It exposes retrieval, reindexing, and bounded file access to AI clients while the StashBase app is running.
 
+### Bug-report boundary
+
+Electron main owns bug-report capture, platform log discovery, redaction,
+diagnostics, temporary artifacts, save/copy operations, and browser/reveal
+handoff. The preload exposes only prepare/copy/save/submit commands and the
+native-menu open event; renderer code must not receive filesystem paths or
+discover logs itself. `capturePage` must target the invoking StashBase
+`BrowserWindow`, never desktop capture APIs.
+
+Log input is tail-bounded before it crosses IPC. Structured records retain only
+timestamp, severity, and subsystem; their free-form payload and every
+unprefixed line—including a tail that begins inside a multiline record—is
+removed so relative paths, basenames, and root-level folder names cannot escape.
+The shared text sanitizer redacts common cloud/OAuth/session credentials,
+credential-bearing URLs, UNC and drive paths, absolute or relative paths, and
+labeled folder or filename values across Unicode and valid path punctuation.
+Error Boundary details follow that sanitizer, are byte-bounded before storage
+or IPC, and remain a separately previewable, excludable artifact.
+Draft directories and their in-memory screenshot/log buffers share one expiry
+decision and are removed after a bounded age; stale IDs return the explicit
+expired-draft contract. Review remains mandatory defense in depth: the
+screenshot can contain an open document, and neither redaction nor generated
+metadata authorizes automatic upload. The report dialog participates in the
+process-wide overlay stack, stays hidden until capture completes, and may dismiss only
+while topmost. Its event/controller owner is a sibling of the application root
+boundary, while its presentation has a separate recovery boundary. Application,
+overlay-provider, or report-presentation failures therefore cannot remove the
+native-menu and Error Boundary report listeners.
+Tests cover menu
+availability on all desktop platforms, bridge wiring, redaction, bounded tails,
+actions and exclusions, cross-platform log ownership, and unified expiry. A
+draft is a capability of its originating renderer webContents; every action
+must reject another sender even if it learns the draft ID. Concurrent renderer
+preparations carry request identities into main: a newer request evicts earlier
+completed drafts for that window, and a slower superseded capture is discarded
+instead of entering the draft map. Window destruction or capture failure removes
+the owner's request bookkeeping and sensitive temporary state. GitHub prefill uses a shared renderer
+character limit plus main-process encoded-byte budgets and a final URL-length
+guard.
+
+Copy, Save, and Submit snapshot the reviewed draft before doing asynchronous
+work; they never coordinate through mutable shared artifact files. Renderer
+controls and entry events lock while one action is pending. Save treats the
+chosen Markdown path as the only overwrite-confirmed destination and creates
+companion screenshot/log files exclusively, aborting rather than replacing an
+existing file.
+
 ---
 
 # 2. Local Files and Scope

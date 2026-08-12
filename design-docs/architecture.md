@@ -101,6 +101,10 @@ user-visible source file.
 - External URLs and local-file navigation follow explicit, validated paths.
 - Network, commands, deletion, rename, and broader filesystem access remain
   explicit approval decisions in the Agent Panel.
+- Bug-report preparation is main-process-owned and local. It may capture only
+  the invoking StashBase window, bounded recent application logs, and basic
+  platform metadata. The renderer receives a reviewable draft through narrow
+  IPC; no report is uploaded automatically and no GitHub credential is held.
 
 ## Documentation Boundary
 
