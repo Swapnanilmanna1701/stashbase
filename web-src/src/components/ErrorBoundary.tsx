@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from 'react';
 import { StatusMessage } from './ui/status';
+import { Button } from './ui/button';
+import { requestBugReport } from '../reportBug';
 
 interface Props {
   children: ReactNode;
@@ -138,6 +140,15 @@ export class ErrorBoundary extends Component<Props, State> {
     try { await navigator.clipboard.writeText(details); } catch { /* clipboard denied */ }
   };
 
+  reportBug = () => {
+    if (!this.state.error) return;
+    requestBugReport([
+      `Error: ${this.state.error.message}`,
+      this.state.error.stack ?? '(no stack)',
+      this.state.componentStack ?? '(no component stack)',
+    ].join('\n\n'));
+  };
+
   render() {
     if (!this.state.error) return this.props.children;
     return (
@@ -152,8 +163,9 @@ export class ErrorBoundary extends Component<Props, State> {
             {this.state.error.stack ?? '(no stack)'}
           </pre>
           <div className="flex justify-end gap-2">
-            <button type="button" className="rounded-md bg-primary px-2.5 py-1.5 text-sm font-medium text-primary-foreground" onClick={this.reset}>Reload</button>
-            <button type="button" className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm font-medium hover:bg-muted" onClick={() => void this.copyDetails()}>Copy details</button>
+            <Button onClick={this.reset}>Reload</Button>
+            <Button variant="outline" onClick={() => void this.copyDetails()}>Copy details</Button>
+            <Button variant="outline" onClick={this.reportBug}>Report bug…</Button>
           </div>
         </StatusMessage>
       </div>

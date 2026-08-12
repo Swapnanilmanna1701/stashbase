@@ -30,6 +30,7 @@ function createApplicationMenuTemplate({
   onNewWindow,
   onCloseWindow,
   onOpenExternal,
+  onReportBug = () => {},
 }) {
   const isMac = platform === 'darwin';
   // Do not use Electron's `role: 'close'`: its Cmd/Ctrl+W binding conflicts
@@ -70,20 +71,17 @@ function createApplicationMenuTemplate({
       role: 'help',
       submenu: [
         {
+          label: 'Report Bug…',
+          click: (_item, win) => onReportBug(win),
+        },
+        { type: 'separator' },
+        {
           label: 'StashBase Website',
           click: () => onOpenExternal(LINKS.website),
         },
         {
           label: 'Community Discord',
           click: () => onOpenExternal(LINKS.discord),
-        },
-        { type: 'separator' },
-        // Bugs belong on the issue tracker, not in chat: an issue is
-        // searchable by the next person who hits the same thing, and a
-        // Discord message is not.
-        {
-          label: 'Report an Issue',
-          click: () => onOpenExternal(LINKS.issues),
         },
       ],
     },

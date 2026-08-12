@@ -17,6 +17,7 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { isCompatibleServerHealth } = require('./main-probe.cjs');
+const { createReportBugService, registerReportBugIpc, reportLogPath } = require('./report-bug.cjs');
 const {
   WINDOW_ID_ARG_PREFIX,
   createApplicationMenuTemplate,
@@ -100,8 +101,21 @@ function stopSpawnedServer() {
 // failed launch. Dock-launched packaged apps inherit Electron's stderr
 // which goes to /dev/null, so without this every server crash is
 // invisible. Path is shown in the failure dialog.
-const SERVER_LOG_DIR = path.join(os.homedir(), 'Library', 'Logs', 'StashBase');
-const SERVER_LOG_PATH = path.join(SERVER_LOG_DIR, 'server.log');
+// Electron resolves this to the platform-native application log directory on
+// macOS, Windows, and Linux. Report collection must never guess a renderer-side
+// path or assume the macOS ~/Library layout.
+const SERVER_LOG_DIR = app.getPath('logs');
+const SERVER_LOG_PATH = reportLogPath(app);
+const reportBug = createReportBugService({
+  app,
+  clipboard,
+  dialog,
+  shell,
+  logPath: SERVER_LOG_PATH,
+  getWindow: (event) => event?.sender
+    ? BrowserWindow.fromWebContents(event.sender)
+    : BrowserWindow.getFocusedWindow(),
+});
 // Use the IPv4 loopback address explicitly. The server binds to
 // 127.0.0.1, and `localhost` may resolve to ::1 first on dual-stack
 // systems — pointing the renderer at 127.0.0.1 sidesteps the silent
@@ -336,7 +350,7 @@ async function startOrReuseServer() {
   // electron asar shim) and bails with ENOTDIR. Use the real
   // Resources/ directory there; in dev keep PROJECT_ROOT (the repo).
   const serverCwd = app.isPackaged ? RESOURCES_ROOT : PROJECT_ROOT;
-  // Tee server output to a per-launch log file in ~/Library/Logs/StashBase/
+  // Tee server output to Electron's platform-native per-launch log file
   // so a packaged Dock launch is debuggable, AND to the parent stdio so
   // `pnpm electron` from a terminal still shows live logs. The file is
   // truncated each launch — old crashes would only confuse the user.
@@ -814,6 +828,10 @@ function installApplicationMenu() {
       if (isLiveMainWindow(target)) target.close();
     },
     onOpenExternal: (url) => { void shell.openExternal(url); },
+    onReportBug: (win) => {
+      const target = isLiveMainWindow(win) ? win : BrowserWindow.getFocusedWindow();
+      if (isLiveMainWindow(target)) target.webContents.send('report-bug:open');
+    },
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -849,6 +867,8 @@ ipcMain.handle('dialog:openFolder', async (event, opts = {}) => {
 ipcMain.handle('shell:openExternal', async (_e, url) => {
   return openHttpExternal(url, 'renderer external URL');
 });
+
+registerReportBugIpc(ipcMain, reportBug);
 
 ipcMain.handle('window:setFolder', (event, folder) => {
   if (folder !== null && (typeof folder !== 'string' || !folder.trim())) return false;

@@ -140,21 +140,27 @@ test('Help menu opens the shared links and is the last menu on both platforms', 
   const links = require('../shared/links.json');
   for (const platform of ['darwin', 'win32', 'linux']) {
     const opened = [];
+    let reportRequests = 0;
     const template = createApplicationMenuTemplate({
       platform,
       onNewWindow: () => {},
       onCloseWindow: () => {},
       onOpenExternal: (url) => opened.push(url),
+      onReportBug: () => { reportRequests += 1; },
     });
     // `role: 'help'` is what makes macOS place it last and attach the
     // system search field; a plain `label: 'Help'` silently loses both.
     const help = template.at(-1);
     assert.equal(help.role, 'help', `${platform}: Help must be the final menu`);
 
+    const reportBug = help.submenu.find((entry) => entry.label === 'Report Bug…');
+    assert.ok(reportBug, `${platform}: Help is missing Report Bug…`);
+    reportBug.click();
+    assert.equal(reportRequests, 1);
+
     for (const [label, expected] of [
       ['StashBase Website', links.website],
       ['Community Discord', links.discord],
-      ['Report an Issue', links.issues],
     ]) {
       const item = help.submenu.find((entry) => entry.label === label);
       assert.ok(item, `${platform}: Help is missing ${label}`);
@@ -163,7 +169,7 @@ test('Help menu opens the shared links and is the last menu on both platforms', 
     }
     // Hard-coding a URL here would let the menu and the renderer's Discord
     // button drift to different invites — the reason links.json exists.
-    assert.deepEqual(opened, [links.website, links.discord, links.issues]);
+    assert.deepEqual(opened, [links.website, links.discord]);
   }
 });
 

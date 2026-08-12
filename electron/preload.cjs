@@ -6,6 +6,7 @@
  */
 const { contextBridge, ipcRenderer } = require('electron');
 const { windowIdFromArgv } = require('./multi-window.cjs');
+const { createReportBugPreloadBridge } = require('./report-bug-bridge.cjs');
 
 const windowId = windowIdFromArgv(process.argv);
 const contextReleaseHandlers = new Set();
@@ -71,6 +72,7 @@ contextBridge.exposeInMainWorld('electron', {
    *  in-app webview overlay; too many sites block iframing for it to
    *  be reliable, and the system browser already has user cookies. */
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  reportBug: createReportBugPreloadBridge(ipcRenderer),
   openFolderWindow: (name) => ipcRenderer.invoke('window:openFolder', name),
   /** Keep the main-process folder → BrowserWindow registry current so
    *  "Open in New Window" can focus an existing matching context. */

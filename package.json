@@ -51,7 +51,7 @@
     "test:python": "node scripts/test-python.mjs",
     "test:config": "node --import tsx --test server/app-config.test.ts",
     "test:renderer": "node --import tsx --test web-src/src/__tests__/*.test.ts web-src/src/milkdown/__tests__/*.test.ts web-src/src/store/__tests__/*.test.ts",
-    "test:electron": "node --test --test-reporter=spec electron/multi-window.test.cjs",
+    "test:electron": "node --test --test-reporter=spec electron/multi-window.test.cjs electron/report-bug.test.cjs",
     "test:electron:smoke": "node electron/multi-window-smoke-runner.cjs",
     "test:renderer-chunks": "node scripts/check-renderer-chunks.mjs",
     "test:conversion-scheduler": "node --import tsx --test server/filesystem-path.test.ts server/folder-relative-path.test.ts server/folder-window.test.ts server/window-context-route.test.ts server/internal-shutdown-route.test.ts server/files.test.ts server/file-formats.test.ts server/file-hash.test.ts server/http.test.ts server/markdown-source-format.test.ts server/keyword-search.test.ts server/index-status.test.ts server/indexer-mfs-path.test.ts server/semantic-workload.test.ts server/session-path.test.ts server/conversion-scheduler.test.ts server/conversion-auxiliary.test.ts server/conversion-status.test.ts server/conversion.test.ts server/extractor-process.test.ts server/audio-transcription.test.ts server/transcription-models.test.ts server/transcription-provider.test.ts server/transcription-runtime.test.ts server/transcription-tools.test.ts server/upload.test.ts",

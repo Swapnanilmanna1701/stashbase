@@ -1,11 +1,7 @@
 import {
-  createContext,
-  useCallback,
-  useContext,
   useId,
   useLayoutEffect,
-  useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 
@@ -29,28 +25,25 @@ export function isTopOverlay(stack: OverlayStackState, id: string): boolean {
   return stack[stack.length - 1] === id;
 }
 
-interface OverlayStackContextValue {
-  stack: OverlayStackState;
-  register: (id: string) => () => void;
+let sharedStack: OverlayStackState = [];
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
 }
 
-const OverlayStackContext = createContext<OverlayStackContextValue | null>(null);
+function register(id: string) {
+  sharedStack = registerOverlay(sharedStack, id);
+  listeners.forEach((listener) => listener());
+  return () => {
+    sharedStack = unregisterOverlay(sharedStack, id);
+    listeners.forEach((listener) => listener());
+  };
+}
 
 export function OverlayStackProvider({ children }: { children: ReactNode }) {
-  const [stack, setStack] = useState<OverlayStackState>([]);
-  const register = useCallback((id: string) => {
-    setStack((current) => registerOverlay(current, id));
-    return () => {
-      setStack((current) => unregisterOverlay(current, id));
-    };
-  }, []);
-  const value = useMemo(() => ({ stack, register }), [register, stack]);
-
-  return (
-    <OverlayStackContext.Provider value={value}>
-      {children}
-    </OverlayStackContext.Provider>
-  );
+  return children;
 }
 
 /**
@@ -59,10 +52,8 @@ export function OverlayStackProvider({ children }: { children: ReactNode }) {
  * it; this closes the pre-paint gap without exposing registration details.
  */
 export function useOverlayLayer(active: boolean) {
-  const context = useContext(OverlayStackContext);
-  if (!context) throw new Error('useOverlayLayer must be used inside OverlayStackProvider');
   const id = useId();
-  const { register, stack } = context;
+  const stack = useSyncExternalStore(subscribe, () => sharedStack, () => sharedStack);
 
   useLayoutEffect(() => {
     if (!active) return undefined;

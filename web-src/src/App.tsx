@@ -32,6 +32,7 @@ import { EditorHistoryNavigator } from './components/EditorHistoryNavigator';
 import { DocumentOutlineProvider } from './components/DocumentOutlineContext';
 import { ErrorBoundary, LazyLoadBoundary, lazyWithRetry } from './components/ErrorBoundary';
 import { OverlayStackProvider } from './components/OverlayStack';
+import { ReportBugDialog } from './components/ReportBugDialog';
 import { AppProvider, useApp } from './store/AppContext';
 import {
   clampChatWidth,
@@ -76,13 +77,18 @@ const LazyImageLightbox = lazyWithRetry(() =>
  */
 export function App() {
   return (
-    <ErrorBoundary>
-      <AppProvider>
+    <>
+      <ErrorBoundary>
         <OverlayStackProvider>
-          <AppBody />
+          <ErrorBoundary>
+            <AppProvider>
+              <AppBody />
+            </AppProvider>
+          </ErrorBoundary>
         </OverlayStackProvider>
-      </AppProvider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+      <ReportBugDialog />
+    </>
   );
 }
 
