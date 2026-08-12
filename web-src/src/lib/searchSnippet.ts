@@ -1,4 +1,4 @@
-/** Display-only cleanup for semantic-search snippets.
+/** Display-only cleanup for meaning-based search snippets.
  *
  * The indexer keeps a Markdown file's leading YAML frontmatter inside the
  * first chunk (it is legitimately searchable, and the raw chunk text anchors

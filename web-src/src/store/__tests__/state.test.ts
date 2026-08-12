@@ -35,6 +35,10 @@ function documentTab(id: string, name: string | null): Tab {
   };
 }
 
+test('Chat is expanded from the first renderer state', () => {
+  assert.equal(initialState.chatOpen, true);
+});
+
 test('document tab lifecycle reuses a blank tab and selects a neighbor on close', () => {
   let state = reducer(freshState(), {
     type: 'FILE_OPEN',

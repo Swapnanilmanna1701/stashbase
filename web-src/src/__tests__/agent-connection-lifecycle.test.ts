@@ -72,6 +72,7 @@ test('explicit renderer teardown detaches close handling before closing', () => 
   const sent: string[] = [];
   const socket: ClosableAgentSocket = {
     onclose: () => { closeEvents += 1; },
+    readyState: 1,
     send: (value) => sent.push(value),
     close() { this.onclose?.(new Event('close')); },
   };
@@ -80,5 +81,22 @@ test('explicit renderer teardown detaches close handling before closing', () => 
 
   assert.deepEqual(sent, [JSON.stringify({ t: 'close' })]);
   assert.equal(closeEvents, 0);
+  assert.equal(socket.onclose, null);
+});
+
+test('explicit teardown does not send a close frame after the socket starts closing', () => {
+  const sent: string[] = [];
+  let closed = false;
+  const socket: ClosableAgentSocket = {
+    onclose: () => undefined,
+    readyState: 2,
+    send: (value) => sent.push(value),
+    close() { closed = true; },
+  };
+
+  closeAgentSocketIntentionally(socket);
+
+  assert.deepEqual(sent, []);
+  assert.equal(closed, true);
   assert.equal(socket.onclose, null);
 });

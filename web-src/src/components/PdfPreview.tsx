@@ -17,6 +17,7 @@ import { useApp } from '../store/AppContext';
 import { getFileReadiness } from '../store/fileReadiness';
 import {
   cleanPdfSearchText,
+  currentPdfPageForViewport,
   exactPageForHighlight,
   findPdfChunkMatch,
   flattenPageText,
@@ -46,7 +47,6 @@ import { Input } from './ui/input';
 // (PDFWorker.create over `new PDFWorker({ port })` only because the latter's
 // generated d.ts mistypes `port` as null; both wrap the same port instance.)
 const pdfWorker = PDFWorker.create({ port: new PdfWorker() });
-const PDF_FIT_SIDE_PADDING = 48;
 const PDF_MIN_SCALE = 0.5;
 const PDF_MAX_SCALE = 3;
 const PDFJS_ASSET_BASE = '/pdfjs-assets';
@@ -69,6 +69,7 @@ const PDFJS_ASSET_BASE = '/pdfjs-assets';
  */
 export function PdfPreview({ name, showConversionBanner = true }: { name: string; showConversionBanner?: boolean }) {
   const { state, actions, activeTab } = useApp();
+  const { consumePendingHighlight, registerFindController, updateTabPdfPage } = actions;
   const pendingHighlight = activeTab?.pendingHighlight ?? null;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const currentRef = useRef({ folderPath: state.folderPath, name });
@@ -137,17 +138,30 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
       behavior,
     });
     setCurrentPage(targetPage);
+    // Direct navigation must persist before the next pointer/keyboard event.
+    // Waiting for the passive currentPage effect lets an immediate tab switch
+    // unmount the viewer before the requested page reaches tab state.
+    if (activeTab?.file?.format === 'pdf' && activeTab.pdfPage !== targetPage) {
+      updateTabPdfPage(activeTab.id, targetPage);
+    }
   }
 
+  /** Fit means fill: the page takes the pane's full width, edge to edge.
+   *  A side gutter here would be a strip of canvas the user never asked
+   *  for — the canvas already shows above and between pages, which is
+   *  where it does the job of separating one sheet from the next.
+   *  `clientWidth` excludes a classic vertical scrollbar, so the fitted
+   *  page can never provoke a horizontal one. */
   function fitScale(): number {
     const viewportWidth = containerRef.current?.clientWidth ?? 0;
     const pageWidth = pageMetrics?.width ?? 0;
     if (viewportWidth <= 0 || pageWidth <= 0) return 1;
-    const available = Math.max(1, viewportWidth - PDF_FIT_SIDE_PADDING);
-    return Math.max(PDF_MIN_SCALE, Math.min(PDF_MAX_SCALE, available / pageWidth));
+    return Math.max(PDF_MIN_SCALE, Math.min(PDF_MAX_SCALE, viewportWidth / pageWidth));
   }
 
-  // Load PDF on name change.
+  // The binary loader is keyed only by the versioned source URL. App-level
+  // command objects can change after unrelated polling or shell updates; they
+  // must never destroy and recreate the live pdf.js document.
   useEffect(() => {
     let cancelled = false;
     let loadingTask: ReturnType<typeof getDocument> | null = null;
@@ -196,7 +210,7 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
       cancelled = true;
       if (loadingTask) loadingTask.destroy().catch(() => { /* ignore */ });
     };
-  }, [fileUrl, actions]);
+  }, [fileUrl]);
 
   const initialScrollDone = useRef(false);
   useEffect(() => {
@@ -225,9 +239,9 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
 
   useEffect(() => {
     if (activeTab && activeTab.file?.format === 'pdf' && activeTab.pdfPage !== currentPage) {
-      actions.updateTabPdfPage(activeTab.id, currentPage);
+      updateTabPdfPage(activeTab.id, currentPage);
     }
-  }, [currentPage, activeTab?.id, activeTab?.file?.format, activeTab?.pdfPage, actions]);
+  }, [currentPage, activeTab?.id, activeTab?.file?.format, activeTab?.pdfPage, updateTabPdfPage]);
 
   useEffect(() => {
     const root = containerRef.current;
@@ -238,19 +252,18 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
       if (!initialScrollDone.current) return;
       const rootRect = root.getBoundingClientRect();
       const markerY = rootRect.top + Math.min(root.clientHeight * 0.35, 160);
-      let bestPage = 1;
-      let bestDistance = Number.POSITIVE_INFINITY;
       const pages = root.querySelectorAll<HTMLElement>('[data-page]');
-      pages.forEach((pageEl) => {
-        const page = Number(pageEl.dataset.page);
-        if (!Number.isFinite(page)) return;
-        const rect = pageEl.getBoundingClientRect();
-        const topDistance = Math.abs(rect.top - markerY);
-        const insideDistance = rect.top <= markerY && rect.bottom >= markerY ? 0 : topDistance;
-        if (insideDistance < bestDistance) {
-          bestDistance = insideDistance;
-          bestPage = page;
-        }
+      const bestPage = currentPdfPageForViewport({
+        scrollTop: root.scrollTop,
+        scrollHeight: root.scrollHeight,
+        clientHeight: root.clientHeight,
+        markerY,
+        pages: Array.from(pages).flatMap((pageEl) => {
+          const page = Number(pageEl.dataset.page);
+          if (!Number.isFinite(page)) return [];
+          const rect = pageEl.getBoundingClientRect();
+          return [{ page, top: rect.top, bottom: rect.bottom }];
+        }),
       });
       setCurrentPage((prev) => (prev === bestPage ? prev : bestPage));
     };
@@ -304,7 +317,7 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
     if (!doc || !pendingHighlight?.chunkText) return;
     let cancelled = false;
     const cleaned = cleanPdfSearchText(pendingHighlight.chunkText);
-    if (!cleaned) { actions.consumePendingHighlight(); return; }
+    if (!cleaned) { consumePendingHighlight(); return; }
 
     void (async () => {
       let best: { page: number; idx: number; length: number; score: number; fp: FlatPage } | null = null;
@@ -335,7 +348,7 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
               top: Math.max(0, target.offsetTop - root.clientHeight * 0.12),
               behavior: 'smooth',
             });
-            actions.consumePendingHighlight();
+            consumePendingHighlight();
           }
         }
         return;
@@ -353,10 +366,10 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
           - root.clientHeight * 0.3;
         root.scrollTo({ top: Math.max(0, desiredScroll), behavior: 'smooth' });
       }
-      actions.consumePendingHighlight();
+      consumePendingHighlight();
     })();
     return () => { cancelled = true; };
-  }, [doc, numPages, pendingHighlight, actions]);
+  }, [doc, numPages, pendingHighlight, consumePendingHighlight]);
 
   // FindBar integration — registers a Cmd+F-driven controller so the
   // user can search PDFs the same way they search MD / HTML / code.
@@ -428,7 +441,7 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
       }
     }
 
-    actions.registerFindController({
+    registerFindController({
       setQuery: async (q, { wholeWord, caseSensitive }) => {
         await rebuild(q, wholeWord, caseSensitive);
         if (state.matches.length === 0) return { current: 0, total: 0 };
@@ -456,9 +469,9 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
 
     return () => {
       cancelled = true;
-      actions.registerFindController(null);
+      registerFindController(null);
     };
-  }, [doc, numPages, actions]);
+  }, [doc, numPages, registerFindController]);
 
   async function onRetry() {
     setRetryBusy(true);
@@ -483,12 +496,25 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
   return (
     /* Light surface keeps continuity with the rest of the app — the white
      * PDF page + shadow gives enough "paper on a desk" contrast without a
-     * heavy dark backdrop. pt-11 clears the breadcrumb / chrome row. */
-    <div className="relative flex h-full w-full flex-col items-center overflow-auto bg-pane pt-11" ref={containerRef}>
+     * heavy dark backdrop. No top padding of its own: MainPane already
+     * reserves the chrome band this viewer's controls portal into, so
+     * padding here would only push the first page further down the pane.
+     *
+     * The top hairline is what lets that band stay on the base surface
+     * like the tab that merges into it. Tint the band instead and a
+     * fitted page — which fills the pane edge to edge — puts a grey
+     * stripe between two whites; leave it untinted with no rule and
+     * scrolling text is clipped at an invisible line. One stroke does
+     * both jobs. `box-border` because Preflight is off here, so the
+     * border would otherwise grow the pane past its row. */
+    <div className="relative box-border flex h-full w-full flex-col items-center overflow-auto border-t border-border bg-pane" ref={containerRef}>
       {error && <div className="p-4 text-base text-status-danger">Failed to open PDF: {error}</div>}
       {!error && !doc && <div className="p-4 text-base text-muted-foreground">Loading PDF…</div>}
       <PdfChromePortal
         scale={scale}
+        autoFit={autoFit}
+        canZoomOut={scale > PDF_MIN_SCALE + 0.001}
+        canZoomIn={scale < PDF_MAX_SCALE - 0.001}
         currentPage={currentPage}
         numPages={numPages}
         status={chromeStatus}
@@ -499,6 +525,10 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
           setAutoFit(true);
           setScale(fitScale());
         }}
+        onActualSize={() => {
+          setAutoFit(false);
+          setScale(1);
+        }}
         onZoomOut={() => {
           setAutoFit(false);
           setScale((s) => Math.max(PDF_MIN_SCALE, s - 0.2));
@@ -507,9 +537,28 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
           setAutoFit(false);
           setScale((s) => Math.min(PDF_MAX_SCALE, s + 0.2));
         }}
-        onJumpToPage={scrollToPage}
+        // A numbered jump is a direct navigation, not continuous reading.
+        // Move synchronously so the scroll listener cannot observe the old
+        // page during a smooth-scroll frame and overwrite the requested page.
+        onJumpToPage={(page) => scrollToPage(page, 'auto')}
       />
-      <div className="flex w-full flex-col items-center gap-2.5 pt-3.5 pb-10">
+      {/* The gap above the first page follows the page's own margins.
+        * Fitted, the sheet runs edge to edge and has none, so a top gap
+        * would be a stripe of canvas the user never asked for — and one
+        * that collapses the moment they scroll, since scrolled content is
+        * clipped at this container's top edge either way. Zoomed away
+        * from fit, the sheet is an object floating on canvas with room on
+        * both sides, and leaving it glued to the toolbar's rule reads as
+        * cropped; it then takes the same 10px it takes between pages.
+        * (`autoFit` fills the width unless the fit scale hit the zoom
+        * ceiling, which only a page narrower than a third of the pane
+        * can do.) */}
+      <div
+        className={
+          'flex w-full flex-col items-center gap-2.5 pb-10'
+          + (autoFit && scale < PDF_MAX_SCALE - 0.001 ? '' : ' pt-2.5')
+        }
+      >
         {doc && Array.from({ length: numPages }, (_, i) => (
           <PdfPage
             key={`p-${i}`}
@@ -518,7 +567,6 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
             scale={scale}
             placeholderHeight={pageMetrics ? pageMetrics.height * scale : 800}
             highlight={pageHighlight?.page === i + 1 ? pageHighlight : null}
-            isCurrent={currentPage === i + 1}
           />
         ))}
       </div>
@@ -526,14 +574,22 @@ export function PdfPreview({ name, showConversionBanner = true }: { name: string
   );
 }
 
+/** Every control in the PDF chrome row. Normal weight because a toolbar
+ *  of numbers reads as data, not as labels, and quiet until pointed at:
+ *  these sit bare on the chrome band, so a resting background on each one
+ *  would put a row of boxes where the band's whole job is to disappear. */
+const PDF_TOOL_ITEM = 'font-normal text-muted-foreground hover:text-foreground';
+
 /** Render the PDF chrome (zoom controls + page count) into the
- *  `#pdf-chrome-slot` MainPane mounts at the top-right of the
- *  breadcrumb row — replaces the old "second toolbar row" so the
- *  viewer doesn't waste vertical folder on what's effectively chrome.
- *  Falls back to inline rendering if MainPane hasn't mounted yet
- *  (initial render race). */
+ *  `#pdf-chrome-slot` MainPane mounts at the top of the main pane —
+ *  replaces the old "second toolbar row" so the viewer doesn't waste
+ *  vertical folder on what's effectively chrome. Renders nothing if
+ *  MainPane hasn't mounted the slot yet (initial render race). */
 function PdfChromePortal({
   scale,
+  autoFit,
+  canZoomOut,
+  canZoomIn,
   currentPage,
   numPages,
   status,
@@ -541,11 +597,15 @@ function PdfChromePortal({
   retryDisabled,
   onRetry,
   onFit,
+  onActualSize,
   onZoomOut,
   onZoomIn,
   onJumpToPage,
 }: {
   scale: number;
+  autoFit: boolean;
+  canZoomOut: boolean;
+  canZoomIn: boolean;
   currentPage: number;
   numPages: number;
   status: { kind: 'error' | 'working'; text: string } | null;
@@ -553,6 +613,7 @@ function PdfChromePortal({
   retryDisabled: boolean;
   onRetry?: () => void;
   onFit: () => void;
+  onActualSize: () => void;
   onZoomOut: () => void;
   onZoomIn: () => void;
   onJumpToPage: (page: number) => void;
@@ -583,21 +644,25 @@ function PdfChromePortal({
   }
 
   const chrome = (
-    <div className="pointer-events-auto flex w-full items-center justify-between gap-1.5 text-sm text-foreground">
-      {/* Transparent when idle so the slot keeps its layout without
-        * painting anything; the working / error states color it in. */}
+    <div className="pointer-events-auto flex w-full items-center gap-3 text-sm">
+      {/* Mounted even when idle: a live region has to exist before the
+        * message lands, or the status arrives silently. Empty is empty —
+        * no transparent placeholder text holding the row open. */}
       <div
         className={
-          'mr-4 min-w-0 flex-1 truncate text-sm leading-tight' +
-          (status ? (status.kind === 'error' ? ' text-status-danger' : ' text-muted-foreground') : ' text-transparent')
+          'flex min-w-0 flex-1 items-center gap-1.5 leading-tight' +
+          (status?.kind === 'error' ? ' text-status-danger' : ' text-muted-foreground')
         }
-        role={status ? 'status' : undefined}
+        role="status"
       >
-        {status?.text ?? ''}
+        {status?.kind === 'working' && (
+          <span className="image-preparation-dot size-1.75 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+        )}
+        <span className="truncate">{status?.text ?? ''}</span>
         {status?.kind === 'error' && onRetry && (
           <button
             type="button"
-            className="ml-2.5 cursor-pointer border-0 bg-transparent p-0 [font:inherit] text-inherit underline underline-offset-2 disabled:cursor-progress disabled:opacity-60"
+            className="shrink-0 cursor-pointer border-0 bg-transparent p-0 [font:inherit] text-inherit underline underline-offset-2 disabled:cursor-progress disabled:opacity-60"
             disabled={retryDisabled}
             onClick={() => { void onRetry(); }}
           >
@@ -605,47 +670,105 @@ function PdfChromePortal({
           </button>
         )}
       </div>
-      <div className="flex flex-none items-center gap-1.5">
-        <Button variant="ghost" size="icon-xs" className="text-lg font-normal" title="Zoom out" onClick={onZoomOut}>−</Button>
-        <span className="min-w-9.5 text-center tabular-nums">{Math.round(scale * 100)}%</span>
-        <Button variant="ghost" size="icon-xs" className="text-lg font-normal" title="Zoom in" onClick={onZoomIn}>+</Button>
-        <Button variant="ghost" size="xs" className="px-2 font-normal" title="Fit to width" onClick={onFit}>Fit</Button>
+      {/* No container: the row sits on the viewer's own canvas, and the
+        * only control carrying a surface is the one that is switched on.
+        * Grouping comes from spacing and a single hairline — a box here
+        * would be a grey panel on a grey field. */}
+      <div className="flex flex-none items-center gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className={PDF_TOOL_ITEM + ' text-lg'}
+          title="Zoom out"
+          aria-label="Zoom out"
+          disabled={!canZoomOut}
+          onClick={onZoomOut}
+        >
+          −
+        </Button>
+        {/* The percentage is the control, not a readout: clicking it is
+          * how you get back to actual size. */}
+        <Button
+          variant="ghost"
+          size="xs"
+          className={PDF_TOOL_ITEM + ' min-w-10 px-1 tabular-nums'}
+          title="Actual size (100%)"
+          aria-label="Actual size"
+          onClick={onActualSize}
+        >
+          {Math.round(scale * 100)}%
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className={PDF_TOOL_ITEM + ' text-lg'}
+          title="Zoom in"
+          aria-label="Zoom in"
+          disabled={!canZoomIn}
+          onClick={onZoomIn}
+        >
+          +
+        </Button>
+        {/* Fit is a mode, so it stays pressed while it holds — otherwise
+          * nothing on screen explains why the zoom reads 117%. Pressed is
+          * the neutral selected surface, one step past hover: this toggle
+          * is on by default, and a standing accent chip on every PDF is
+          * exactly the repeated colour moment the palette rations. */}
+        <Button
+          variant="ghost"
+          size="xs"
+          className={
+            PDF_TOOL_ITEM
+            + ' ml-0.5 px-2'
+            + ' aria-pressed:bg-active aria-pressed:text-foreground aria-pressed:hover:bg-active'
+          }
+          title="Fit to width"
+          aria-pressed={autoFit}
+          onClick={onFit}
+        >
+          Fit
+        </Button>
         {numPages > 0 && (
-          editingPage ? (
-            <span className="ml-1.5 inline-flex items-center gap-1 text-muted-foreground tabular-nums">
-              <span>Page</span>
-              <Input
-                autoFocus
-                className="h-5.5 w-9.5 px-0 text-center"
-                value={pageInput}
-                inputMode="numeric"
-                aria-label="PDF page number"
-                onChange={(e) => setPageInput(e.target.value)}
-                onBlur={submitPageJump}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') submitPageJump();
-                  if (e.key === 'Escape') {
-                    setPageInput(String(currentPage));
-                    setEditingPage(false);
-                  }
+          <>
+            <span className="mx-1.5 h-3.5 w-px shrink-0 bg-border" aria-hidden="true" />
+            {editingPage ? (
+              /* h-6 matches the buttons it replaces so the row keeps its
+                 height while the page field is open. */
+              <span className="flex h-6 items-center gap-1 text-xs text-muted-foreground tabular-nums">
+                <Input
+                  autoFocus
+                  className="h-5 w-8 px-0 text-center text-xs"
+                  value={pageInput}
+                  inputMode="numeric"
+                  aria-label="PDF page number"
+                  onChange={(e) => setPageInput(e.target.value)}
+                  onBlur={submitPageJump}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') submitPageJump();
+                    if (e.key === 'Escape') {
+                      setPageInput(String(currentPage));
+                      setEditingPage(false);
+                    }
+                  }}
+                />
+                <span>/ {numPages}</span>
+              </span>
+            ) : (
+              <Button
+                variant="ghost"
+                size="xs"
+                className={PDF_TOOL_ITEM + ' px-2 tabular-nums'}
+                title="Jump to page"
+                aria-label={`Page ${currentPage} of ${numPages} — jump to page`}
+                onClick={() => {
+                  setPageInput(String(currentPage));
+                  setEditingPage(true);
                 }}
-              />
-              <span>/ {numPages}</span>
-            </span>
-          ) : (
-            <Button
-              variant="ghost"
-              size="xs"
-              className="ml-1.5 px-1.5 font-normal text-muted-foreground tabular-nums hover:text-foreground"
-              title="Jump to page"
-              onClick={() => {
-                setPageInput(String(currentPage));
-                setEditingPage(true);
-              }}
-            >
-              Page {currentPage} / {numPages}
-            </Button>
-          )
+              >
+                {currentPage} / {numPages}
+              </Button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -662,14 +785,12 @@ function PdfPage({
   scale,
   placeholderHeight,
   highlight,
-  isCurrent,
 }: {
   doc: PDFDocumentProxy;
   pageIndex: number;
   scale: number;
   placeholderHeight: number;
   highlight: PdfPageHighlight | null;
-  isCurrent: boolean;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -764,18 +885,9 @@ function PdfPage({
       {visible ? <canvas ref={canvasRef} className="block" /> : (
         <div className="flex min-h-[800px] w-[600px] items-center justify-center text-sm text-muted-foreground">Page {pageIndex + 1}</div>
       )}
-      {/* Margin page number — pinned just left of the page edge, on the
-        * pane. Painted over neither theme surface exactly, so it keeps
-        * the legacy fixed ink instead of a theme token. */}
-      <div
-        className={
-          'pointer-events-none absolute top-2 -left-11 box-border min-w-8.5 rounded-sm px-1.25 py-0.5 text-right text-xs select-none tabular-nums' +
-          (isCurrent ? ' bg-accent/10 text-accent' : ' text-black/40')
-        }
-        aria-hidden="true"
-      >
-        p. {pageIndex + 1}
-      </div>
+      {/* No margin page number: at fit-to-width the gutter is 24px, so
+        * the marker was always clipped by the pane edge, and the chrome
+        * row already tracks the page you're on as you scroll. */}
       {visible && renderedSize && highlight && (
         <div className="pointer-events-none absolute inset-0 z-2" aria-hidden="true">
           {highlight.rects.map((rect, i) => (

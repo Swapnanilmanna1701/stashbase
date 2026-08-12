@@ -1,9 +1,7 @@
 import {
-  BugIcon,
   ChevronDownIcon,
   CollapseAllIcon,
   CubeLogoIcon,
-  DiscordIcon,
   ExpandAllIcon,
   ExternalLinkIcon,
   FolderIcon,
@@ -14,18 +12,21 @@ import {
   NewFolderIcon,
   OutlineIcon,
   PlusIcon,
-  SettingsIcon,
+  StarFilledIcon,
   StarIcon,
   SyncIcon,
   TrashIcon,
 } from '../icons';
-import { openSettings } from './SettingsModal';
-import { DISCORD_INVITE_URL, openExternalUrl } from '../lib/externalLink';
+import { SidebarAccountRow } from './SidebarAccountRow';
 import { useApp } from '../store/AppContext';
 import { makeChatTab, type Action, type LibraryFolderStatus, type State } from '../store/state';
 import { folderScope, LIBRARY_SCOPE, newChatPlan, type ChatScope } from './agent/folderState';
 import { AGENT_META, AGENTS, type AgentKind } from '../agentCatalog';
-import { readPreferredAgent, rememberPreferredAgent } from '../agentPreference';
+import {
+  newChatAgentSelectionPlan,
+  readPreferredAgent,
+  rememberPreferredAgent,
+} from '../agentPreference';
 import { folderRefsEqual } from '../folderPath';
 import { FileTree } from './FileTree';
 import { useDocumentOutline } from './DocumentOutlineContext';
@@ -64,6 +65,7 @@ const DocumentOutline = lazyWithRetry(() =>
   import('./DocumentOutline').then((mod) => ({ default: mod.DocumentOutline })));
 const SemanticIndexingNotice = lazyWithRetry(() =>
   import('./SemanticIndexingNotice').then((mod) => ({ default: mod.SemanticIndexingNotice })));
+const EmbeddingSetupCallout = lazyWithRetry(() => import('./EmbeddingSetupCallout'));
 const UnsupportedFilesCallout = lazyWithRetry(() => import('./UnsupportedFilesCallout'));
 
 /** Shorten an absolute path for display: `/Users/foo/Notes` → `~/Notes`
@@ -102,7 +104,7 @@ function libraryFolderState(status: IndexStatus): LibraryFolderStatus {
  * folder's file tree — with no activity rail: the sidebar toggle and
  * search live in the shell's titlebar controls (`TitlebarControls.tsx`),
  * search itself in the library search popup (`LibrarySearchDialog.tsx`),
- * and Settings in the panel's bottom row.
+ * and the account (with Settings beside it) in the panel's bottom row.
  */
 export function Sidebar() {
   return (
@@ -157,6 +159,10 @@ function FilesPanel() {
   const [outlineExpanded, setOutlineExpanded] = useState(true);
 
   const hasMarkdownDocument = activeTab?.file?.format === 'md';
+  // Tri-state: `null` means the embedder has not been read yet, and only a
+  // definite `false` should pull in the notice chunk. The card re-checks
+  // before rendering; this just decides whether loading it can matter.
+  const embeddingSetupPossible = state.embedderHasKey === false;
   // The outline block belongs to an OPEN DOCUMENT inside an open
   // folder. A bare workspace (chat only, nothing open) drops it, as
   // does a window with no folder — nothing there has an outline, and
@@ -199,7 +205,7 @@ function FilesPanel() {
           * never shifts the sections below under the pointer; a file
           * that cannot have an outline says so in the empty note. It
           * carries the dock's mt-auto anchor; the dock reads outline →
-          * Library → Settings, each a fixed block with a top hairline
+          * Library → account, each a fixed block with a top hairline
           * (they sit flush, so whitespace cannot separate them here).
           * The expanded list is the Library treatment — a capped
           * internal scroller, not a growing section. */}
@@ -245,72 +251,20 @@ function FilesPanel() {
         </section>
         )}
       </LibrarySections>
+      {/* AI Index authorization is APP-WIDE, not a property of the
+        * open folder, so it sits in the bottom chrome above the account
+        * row rather than inside the file tree. Wedged between a folder header
+        * and its own files it read as a fact about those files, and it
+        * pushed the tree — the thing the panel exists for — down the
+        * screen for a secondary notice. */}
+      {embeddingSetupPossible && (
+        <Suspense fallback={null}>
+          <EmbeddingSetupCallout />
+        </Suspense>
+      )}
       {/* No mt-auto here: a dock block above always carries the bottom
         * anchor, and this row simply sits under it. */}
-      <SettingsRow />
-    </div>
-  );
-}
-
-/** Bottom chrome row (Cursor's account/settings strip position) — the
- *  app's one Settings entry now that the activity rail is gone. A quiet
- *  muted row in the sidebar's own idiom rather than a bare corner icon,
- *  so it stays discoverable. */
-function SettingsRow() {
-  return (
-    <div className="flex flex-none items-center gap-0.5 border-t border-border px-1.5 pt-1 pb-1.5">
-      {/* One icon scale app-wide: every glyph is 14px (size-3.5),
-        * centred in 16px grid slots — the titlebar controls, section
-        * headers, rows, and this strip. Hierarchy comes from
-        * colour/weight/text size, never glyph size; indicators
-        * (chevrons, stars, dots) run smaller still. */}
-      <button
-        type="button"
-        className={
-          /* Hover brightens the TEXT only — no filled row surface. This
-           * strip is app chrome pinned under the dock's section bands,
-           * not a list row, and a hover pill here read as a fourth
-           * selectable item in the stack. */
-          'flex min-h-7 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 '
-          + 'text-left text-base text-muted-foreground hover:text-foreground [&_svg]:size-3.5 [&_svg]:flex-none'
-        }
-        onClick={() => openSettings()}
-      >
-        {/* 16px slot for the 38px gutter — see the New Chat row. */}
-        <span className="inline-flex size-4 flex-none items-center justify-center">
-          <SettingsIcon />
-        </span>
-        <span className="min-w-0 truncate">Settings</span>
-      </button>
-      {/* Report Bug — PLACEHOLDER parked at the row's right end: disabled
-        * and dimmed until the report flow exists; only then does it get a
-        * click handler and hover states. */}
-      <button
-        type="button"
-        disabled
-        aria-label="Report a bug (coming soon)"
-        title="Report a bug (coming soon)"
-        className="inline-flex size-7 flex-none items-center justify-center rounded-md border-0 bg-transparent p-0 text-muted-foreground opacity-45 [&_svg]:size-3.5"
-      >
-        <BugIcon />
-      </button>
-      {/* Community — the app's only in-product route to a human, so it sits
-        * in persistent chrome rather than behind a menu. Parked to the right
-        * of Report Bug on purpose: while that one is still a placeholder,
-        * this is where someone who is stuck actually gets unstuck, and the
-        * two read as one "get help" cluster once the report flow lands. */}
-      <button
-        type="button"
-        aria-label="Join the StashBase Discord"
-        title="Join the StashBase Discord"
-        className={
-          'inline-flex size-7 flex-none cursor-pointer items-center justify-center rounded-md border-0 '
-          + 'bg-transparent p-0 text-muted-foreground hover:text-foreground [&_svg]:size-3.5'
-        }
-        onClick={() => { openExternalUrl(DISCORD_INVITE_URL); }}
-      >
-        <DiscordIcon />
-      </button>
+      <SidebarAccountRow />
     </div>
   );
 }
@@ -318,14 +272,13 @@ function SettingsRow() {
 /** Full-width New Chat entry above the Library section (Cursor's "New
  *  Agent" position) — the app's ONE chat-creation entry point, a split
  *  button. The main area starts a chat with the last-selected agent; the
- *  chevron at the row's right edge opens a menu to start with a specific
- *  agent AND make it the new default. Creation reuses the one completely
- *  blank tab regardless of its agent (switching the blank tab's agent in
- *  place when it differs — `newChatPlan`); any content, draft,
- *  attachments, or resumed session means a fresh tab instead. Opens the
- *  chat panel when hidden. The reused/created tab's scope resolves to
- *  the window default (current folder, else Library) on connect, so no
- *  scope needs to be threaded here. */
+ *  chevron at the row's right edge only chooses the agent the next main-area
+ *  click will use. That click reuses the one completely blank tab regardless
+ *  of its agent (switching the blank tab's agent in place when it differs —
+ *  `newChatPlan`); any content, draft, attachments, or resumed session means
+ *  a fresh tab instead. It opens the chat panel when hidden. The
+ *  reused/created tab's scope resolves to the window default (current folder,
+ *  else Library) on connect, so no scope needs to be threaded here. */
 function NewChatButton() {
   const { state, dispatch } = useApp();
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
@@ -335,11 +288,13 @@ function NewChatButton() {
     activateChatTabForAgent(state, dispatch, agent);
   }
 
-  /** Explicit pick from the chevron menu: creates the chat AND updates
-   *  the app-wide default agent for later New Chat clicks. */
+  /** Picking from the chevron only updates the next-chat preference. Chat
+   *  creation stays behind the main New Chat action. */
   function pickAgent(agent: AgentKind) {
-    rememberPreferredAgent(agent);
-    startChat(agent);
+    const plan = newChatAgentSelectionPlan(agent);
+    rememberPreferredAgent(plan.preferredAgent);
+    if (plan.startAgent) startChat(plan.startAgent);
+    setMenuAnchor(null);
   }
 
   /* Agent NAMES, not "New <Agent> Chat": the row itself says New Chat and
@@ -352,9 +307,9 @@ function NewChatButton() {
     onSelect: () => pickAgent(agent.id),
   }));
 
-  // Read at render time, no state: every rememberPreferredAgent call site
-  // (this menu, the chat pane's launcher, openAgent) dispatches a store
-  // update in the same interaction, so this row re-renders fresh.
+  // Read at render time, no state: the picker closes its menu after writing,
+  // while the other rememberPreferredAgent call sites also dispatch a store
+  // update, so this row re-renders with the latest app-wide preference.
   const preferred = AGENT_META[readPreferredAgent()];
 
   return (
@@ -997,6 +952,7 @@ function LibrarySections({ children }: { children?: React.ReactNode }) {
                   >
                     <button
                       type="button"
+                      aria-label={name}
                       className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 border-0 bg-transparent py-1 pr-1 pl-2 text-left text-base text-foreground/80 group-hover/root:text-foreground disabled:cursor-default"
                       disabled={!!openingFolder}
                       title={entry.path}
@@ -1012,7 +968,7 @@ function LibrarySections({ children }: { children?: React.ReactNode }) {
                           ? <SyncIcon className="size-3.5 animate-spin" />
                           : <FolderIcon className="size-3.5" />}
                         {!opening && entry.favorite && (
-                          <StarIcon className="absolute -right-1 -bottom-0.5 size-2 fill-current" aria-label="Favorite" />
+                          <StarFilledIcon className="absolute -right-1 -bottom-0.5 size-2" aria-label="Favorite" />
                         )}
                       </span>
                       <span className="min-w-0 truncate">{name}</span>
@@ -1241,21 +1197,29 @@ function ActiveFolderHeader({
       onDragLeave={onSideHeadDragLeave}
       onDrop={onSideHeadDrop}
     >
-      <span className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-foreground">
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-foreground">
         {/* Folder glyph at rest; the pointer swaps in the fold chevron so
           * the collapse affordance appears only when it's actionable. */}
-        <span
-          className="inline-flex size-4 flex-none items-center justify-center text-muted-foreground"
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-4 flex-none rounded-sm p-0 text-muted-foreground hover:bg-transparent"
+          aria-label={`${state.folderCollapsed ? 'Expand' : 'Collapse'} files in ${name}`}
+          aria-expanded={!state.folderCollapsed}
           onClick={(e) => { e.stopPropagation(); dispatch({ type: 'FOLDER_FOLD_TOGGLE' }); }}
         >
           <FolderIcon className="size-3.5 group-hover/head:hidden" />
           <span className={'hidden items-center justify-center transition-transform duration-fast group-hover/head:inline-flex [&_svg]:size-3.5' + (state.folderCollapsed ? ' -rotate-90' : '')}><ChevronDownIcon /></span>
-        </span>
-        <span
-          className="min-w-0 flex-1 truncate text-base font-medium"
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-auto min-w-0 flex-1 shrink justify-start truncate p-0 text-left text-base font-medium text-foreground hover:bg-transparent hover:text-foreground active:translate-y-0"
+          aria-label={`Select ${name} folder root`}
           title={path}
           onClick={(e) => { e.stopPropagation(); dispatch({ type: 'ACTIVE_FOLDER', path: '' }); }}
-        >{name}</span>
+        >{name}</Button>
         {favorite && (
           <StarIcon className="size-3 shrink-0 fill-current text-muted-foreground" aria-label="Favorite" />
         )}
@@ -1327,6 +1291,7 @@ function NewNoteButton() {
       size="icon-xs"
       className="text-muted-foreground"
       title={'New note in ' + target}
+      aria-label={'New note in ' + target}
       onClick={() => void actions.newNote()}
     ><NewFileIcon className="size-3.5" /></Button>
   );

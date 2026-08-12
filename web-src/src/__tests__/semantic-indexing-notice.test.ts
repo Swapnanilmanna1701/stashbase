@@ -24,7 +24,7 @@ test('awaiting notice renders live guidance and dispatches both decisions withou
   assert.equal(status.props['aria-live'], 'polite');
   assert.match(renderer!.root.findByProps({ role: 'alert' }).children.join(''), /stale row/);
   const buttons = renderer!.root.findAllByType('button');
-  assert.deepEqual(buttons.map((button) => button.children.join('')), ['Index now', 'Not now']);
+  assert.deepEqual(buttons.map((button) => button.children.join('')), ['Build AI Index', 'Not now']);
   assert.ok(buttons.every((button) => button.props.autoFocus == null));
   await act(async () => { buttons[0].props.onClick(); buttons[1].props.onClick(); });
   assert.deepEqual(decisions, ['start', 'defer']);
@@ -44,7 +44,7 @@ test('durably paused notice keeps the recoverable start action only', async () =
   });
   const buttons = renderer!.root.findAllByType('button');
   assert.equal(buttons.length, 1);
-  assert.equal(buttons[0].children.join(''), 'Start indexing');
+  assert.equal(buttons[0].children.join(''), 'Resume AI Index');
   await act(async () => { buttons[0].props.onClick(); });
   assert.equal(starts, 1);
   await act(async () => { renderer!.unmount(); });

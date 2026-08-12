@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DEFAULT_AGENT,
+  newChatAgentSelectionPlan,
   readPreferredAgent,
   rememberPreferredAgent,
 } from '../agentPreference';
@@ -33,4 +34,11 @@ test('invalid or inaccessible Agent preferences recover to Codex', () => {
   };
   assert.equal(readPreferredAgent(inaccessible), 'codex');
   assert.doesNotThrow(() => rememberPreferredAgent('claude', inaccessible));
+});
+
+test('choosing the agent only updates the next-chat preference', () => {
+  assert.deepEqual(newChatAgentSelectionPlan('claude'), {
+    preferredAgent: 'claude',
+    startAgent: null,
+  });
 });

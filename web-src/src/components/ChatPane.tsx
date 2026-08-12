@@ -19,6 +19,8 @@ import { rememberPreferredAgent } from '../agentPreference';
 /** One tab body. Inactive panes stay mounted (preserving each session's
  *  state) but render invisible and inert. */
 const tabPaneClass = 'absolute inset-0 flex flex-col';
+const chatTabId = (id: string) => `chat-tab-${id}`;
+const chatPanelId = (id: string) => `chat-panel-${id}`;
 
 /** The inside of one tab body; `status` styles the "no active chat" notice
  *  and the lazy-load error fallback. */
@@ -60,8 +62,9 @@ export function ChatPane() {
   const activeId = state.activeChatTabId;
 
   return (
-    <div
+    <aside
       className="chat-pane-shell"
+      aria-label="Agent chat"
       aria-hidden={!state.chatOpen || undefined}
       inert={!state.chatOpen || undefined}
     >
@@ -76,8 +79,12 @@ export function ChatPane() {
         * bottom pad here left the chat tabs floating above a line the
         * document tabs sat on. Change one, change both. */}
       <div className="chat-tab-row flex min-h-8 items-end gap-1 pt-1.5 pr-10 pl-2">
-        <div className="scrollbar-quiet flex flex-1 gap-0.5 overflow-x-auto overflow-y-hidden">
-          {tabs.map((tab) => (
+        <div
+          className="scrollbar-quiet flex flex-1 gap-0.5 overflow-x-auto overflow-y-hidden"
+          role="tablist"
+          aria-label="Chat sessions"
+        >
+          {tabs.map((tab, index) => (
             <div
               key={tab.id}
               className={cn(
@@ -96,10 +103,31 @@ export function ChatPane() {
                 tab.id === activeId && 'border-border bg-canvas font-medium text-foreground hover:bg-canvas',
               )}
               role="tab"
+              id={chatTabId(tab.id)}
               aria-selected={tab.id === activeId}
+              aria-controls={chatPanelId(tab.id)}
+              tabIndex={tab.id === activeId ? 0 : -1}
               onClick={() => {
                 if (isAgentKind(tab.agent)) rememberPreferredAgent(tab.agent);
                 dispatch({ type: 'CHAT_TAB_ACTIVATE', id: tab.id });
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  dispatch({ type: 'CHAT_TAB_ACTIVATE', id: tab.id });
+                  return;
+                }
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const nextIndex = event.key === 'Home'
+                  ? 0
+                  : event.key === 'End'
+                    ? tabs.length - 1
+                    : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+                const next = tabs[nextIndex];
+                if (!next) return;
+                dispatch({ type: 'CHAT_TAB_ACTIVATE', id: next.id });
+                requestAnimationFrame(() => document.getElementById(chatTabId(next.id))?.focus());
               }}
               title={tab.title}
             >
@@ -131,6 +159,8 @@ export function ChatPane() {
             key={tab.id}
             className={cn(tabPaneClass, tab.id === activeId ? 'visible' : 'invisible pointer-events-none')}
             role="tabpanel"
+            id={chatPanelId(tab.id)}
+            aria-labelledby={chatTabId(tab.id)}
             aria-hidden={tab.id !== activeId}
           >
             <ChatSessionBoundary tabId={tab.id} active={tab.id === activeId}>
@@ -155,6 +185,6 @@ export function ChatPane() {
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

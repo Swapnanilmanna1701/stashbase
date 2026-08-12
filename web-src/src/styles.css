@@ -29,8 +29,10 @@
    * subdued text. The app's legacy `--muted` variable is the text role. */
   --color-muted: var(--hover);
   --color-muted-foreground: var(--muted);
-  /* Placeholder text — one role for every empty field in the app, so
-   * `placeholder:text-placeholder` is the only way a hint gets its colour.
+  /* Placeholder text — one role for every slot in the app that holds no
+   * value yet: an empty field's hint (`placeholder:text-placeholder`, the
+   * only way a hint gets its colour) and standing text that stands in for
+   * a value nobody has supplied, such as the signed-out account name.
    * Ranks below muted-foreground on purpose; see globals.css. */
   --color-placeholder: var(--text-placeholder);
   /* Selection surface — the accent-tinted "this row is active/chosen"

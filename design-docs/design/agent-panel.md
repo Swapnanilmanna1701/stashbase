@@ -16,8 +16,8 @@ client of StashBase context, not a separate AI workspace.
 - A New Chat split button at the top of the sidebar (above the Library
   list) is the one place chats are created and Agents are chosen. Its
   main area starts a chat with the last-selected Agent; a subtle chevron
-  at the row's right edge offers New Claude Code Chat / New Codex Chat,
-  and picking one also updates the default for later New Chat clicks.
+  at the row's right edge chooses Claude Code or Codex as the default for
+  later New Chat clicks without starting a chat itself.
   The chat is scoped to the window's current folder — or to the Library
   when no folder is current — and it reuses a completely blank chat when
   one exists instead of stacking empty tabs, switching that chat's Agent
@@ -55,7 +55,8 @@ client of StashBase context, not a separate AI workspace.
   window. Folder chats end when their window closes, when their folder is
   removed from the library, or on app quit; library chats end only with
   their window or on app quit — removing a folder never ends them.
-- With no document open, Chat fills the workspace beside the Files sidebar.
+- From the first window frame, Chat is expanded; once its default blank session
+  is ready, it fills the document-free workspace beside the Files sidebar.
   Opening a file, search result, local response link, artifact, or new note
   moves the same mounted chat into the side panel. Closing the last document
   expands an open chat again. On compact windows a newly opened document takes

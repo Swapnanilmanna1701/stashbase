@@ -349,7 +349,7 @@ test('paused writes retain hash-current rows and invalidate only changed content
   assert.equal(pausedWriteDisposition(null, 'new'), 'invalidate');
 });
 
-test('semantic search excludes every daemon-pending identity while paused', () => {
+test('semantic retrieval excludes every daemon-pending identity while paused', () => {
   const hits = [
     { fileName: '/library/current.md', content: 'current' },
     { fileName: '/library/stale.md', content: 'stale' },

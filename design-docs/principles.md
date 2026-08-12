@@ -19,7 +19,7 @@ These are the stable rules used to evaluate product and technical decisions.
    reading and search, but users continue to see, manage, and open their
    source files.
 7. **Useful before perfect** — Browsing, editing, and keyword retrieval should
-   remain useful while preparation is incomplete or semantic indexing is
+   remain useful while preparation is incomplete or AI Index is
    unavailable.
 8. **Small, understandable surface** — New features must earn their place by
    strengthening the local-file-to-agent-context loop.

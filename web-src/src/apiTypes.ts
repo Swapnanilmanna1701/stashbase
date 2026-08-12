@@ -137,9 +137,9 @@ export interface IndexStatus {
   orphanedCount: number;
   orphaned: string[];
   upToDate: boolean;
-  /** False when semantic indexing/search is unavailable, e.g. no embedding key. */
+  /** False when semantic indexing/retrieval is unavailable, e.g. no embedding key. */
   semanticEnabled?: boolean;
-  /** Human-readable reason when semantic indexing/search is disabled. */
+  /** Human-readable reason when semantic indexing/retrieval is disabled. */
   semanticDisabledReason?: string;
   /** True when no UI-visible file is waiting for embedding. Unlike
    *  upToDate, this ignores orphaned/hidden index rows that are not

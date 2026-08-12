@@ -8,6 +8,7 @@ import { cn } from '../../lib/utils';
 import type { FileMeta, FolderMeta } from '../../api';
 import { ImageLightbox } from '../ImageLightbox';
 import { baseName } from './attachments';
+import { FileAttachmentChip } from './FileAttachmentChip';
 import { effortLabel, effortOptions } from './effortMenuState';
 import {
   scopePillAriaLabel,
@@ -18,8 +19,8 @@ import { ScopeMenu } from '../ScopeMenu';
 import { MentionComposer, type MentionComposerHandle, type MentionQuery } from './MentionComposer';
 import { rankMentionSuggestions } from './mentionRanking';
 import {
-  attachChipClass, attachIconClass, attachImageChipClass, attachImagePreviewClass,
-  attachImageRemoveClass, attachNameClass, attachRemoveClass, iconGhostButtonClass,
+  attachImageChipClass, attachImagePreviewClass,
+  attachImageRemoveClass, attachRemoveClass, iconGhostButtonClass,
   menuHeadClass, menuSectionClass, optActiveClass, optCheckClass, optClass, optDescClass,
   optIconClass, optTextClass, optTitleClass, pillChevronClass, pillClass, pillLockedClass,
 } from './panelStyles';
@@ -382,7 +383,10 @@ export function AgentComposer({
     // px-3 matches the transcript's 12px insets so the composer card and
     // the turn cards above share one column edge (the wrapper's
     // chat-primary width budgets for it — see `.agent-composer`).
-    <div className={cn('relative', hero ? 'mx-auto w-[min(656px,100%)] p-2' : 'agent-composer p-2 px-3')}>
+    <div
+      className={cn('relative', hero ? 'mx-auto w-[min(656px,100%)] p-2' : 'agent-composer p-2 px-3')}
+      data-draft-empty={text.trim() ? 'false' : 'true'}
+    >
       {mention && (choices.length > 0 || mention.kind === 'skill') && (
         <div className="agent-mention">
           <div className="agent-mention-head">
@@ -472,11 +476,12 @@ export function AgentComposer({
                 </Button>
               </span>
             ) : (
-              <span key={a.path} className={attachChipClass} title={a.path}>
-                <FileGenericIcon className={attachIconClass} />
-                <span className={attachNameClass}>{a.name}</span>
-                <Button className={attachRemoveClass} aria-label={`Remove ${a.name}`} onPress={() => onRemoveAttachment(a.path)}>×</Button>
-              </span>
+              <FileAttachmentChip
+                key={a.path}
+                name={a.name}
+                path={a.path}
+                trailing={<Button className={attachRemoveClass} aria-label={`Remove ${a.name}`} onPress={() => onRemoveAttachment(a.path)}>×</Button>}
+              />
             ))}
             {uploading && <span className="text-xs text-muted-foreground">Uploading…</span>}
           </div>

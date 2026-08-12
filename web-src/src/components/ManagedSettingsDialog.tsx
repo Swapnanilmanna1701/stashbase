@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { XIcon } from 'lucide-react';
+import { CloseIcon } from '../icons';
 import type { SettingsDialogProps, SettingsSection } from './SettingsModal';
 import { AppearancePanel } from './settings/AppearancePanel';
 import { EmbeddingPanel } from './settings/EmbeddingPanel';
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 
 const SECTIONS: { id: SettingsSection; label: string; render: () => ReactNode }[] = [
   { id: 'appearance', label: 'Appearance', render: () => <AppearancePanel /> },
-  { id: 'embedding', label: 'Embedding', render: () => <EmbeddingPanel /> },
+  { id: 'embedding', label: 'AI Index', render: () => <EmbeddingPanel /> },
   { id: 'transcription', label: 'Transcription', render: () => <TranscriptionPanel /> },
   { id: 'mcp', label: 'MCP', render: () => <McpClientsPanel /> },
 ];
@@ -45,7 +45,7 @@ export default function ManagedSettingsDialog({
             aria-label="Close settings"
             onClick={onClose}
           >
-            <XIcon aria-hidden="true" />
+            <CloseIcon aria-hidden="true" />
           </Button>
         </div>
         <div className="grid min-h-0 flex-1 grid-cols-[180px_1fr]">

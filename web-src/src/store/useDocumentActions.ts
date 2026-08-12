@@ -106,12 +106,11 @@ export function useDocumentActions(
         if (!sameTab) return true;
 
         const liveValue = editor.current?.getValue();
-        // An open Milkdown editor is the source of its live document. Even
-        // reusing the exact submitted Markdown here changes the `content` prop
-        // and schedules a DOM-decoration pass while CodeMirror owns code-block
-        // node views. Advance only the optimistic-concurrency version; actual
-        // external reloads still replace content through file loading.
-        dispatch({ type: 'FILE_PATCH', patch: { version: savedResult.version } });
+        // Keep the tab's retained source aligned with the accepted save so a
+        // later tab reactivation does not remount from its original content.
+        // Document surfaces ignore incoming source while dirty; for a clean
+        // acknowledgement this value already equals the live editor.
+        dispatch({ type: 'FILE_PATCH', patch: { content, version: savedResult.version } });
         if (liveValue === content) {
           dispatch({ type: 'DOCUMENT_DIRTY', dirty: false });
           dispatch({ type: 'SAVE_STATUS', status: { text: 'Saved', cls: 'saved' } });
@@ -413,6 +412,10 @@ export function useDocumentActions(
     dispatch({ type: 'TAB_PDF_PAGE', id: tabId, page });
   }, [dispatch]);
 
+  const setUnsupportedModalOpen = useCallback((open: boolean) => {
+    dispatch({ type: 'UNSUPPORTED_MODAL', open });
+  }, [dispatch]);
+
   return {
     activateTab,
     closeActiveTab,
@@ -428,10 +431,8 @@ export function useDocumentActions(
     scheduleSave,
     selectFile,
     selectFileWithHighlight,
+    setUnsupportedModalOpen,
     toggleEditMode,
     updateTabPdfPage,
-    setUnsupportedModalOpen: (open: boolean) => {
-      dispatch({ type: 'UNSUPPORTED_MODAL', open });
-    },
   };
 }

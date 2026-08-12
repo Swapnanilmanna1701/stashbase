@@ -269,7 +269,7 @@ export interface State {
    *  losing the window's folder context (CHAT_TABS_RESET) clears it. */
   pendingResume: PendingChatResume | null;
 
-  /** User-visible paths whose semantic-search content is still being
+  /** User-visible paths whose AI Index content is still being
    *  embedded/indexed. Keyword search ignores this state and can search
    *  converted/source text without embeddings. */
   pendingSemanticNames: Set<string>;
@@ -360,7 +360,11 @@ export const initialState: State = {
   folderCollapsed: false,
   sidebarCollapsed: false,
   sidebarWidth: 280,
-  chatOpen: false,
+  // The app boots into the library-scoped Chat workspace. Keep the shell open
+  // from the first renderer frame; AppBody creates the initial blank tab once
+  // bootstrap settles, but the panel must not flash or remain collapsed while
+  // that asynchronous state arrives.
+  chatOpen: true,
   chatWidth: 480,
   agents: [],
   chatTabs: [],

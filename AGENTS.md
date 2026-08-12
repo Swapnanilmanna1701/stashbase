@@ -124,6 +124,15 @@ without hand-holding:
 3. **Verify — never report done without this**:
    - `pnpm typecheck` (always; covers server, MCP, and renderer)
    - `npx vite build --config web-src/vite.config.ts` (renderer changes)
+   - `pnpm test:e2e:check-focus` (E2E changes)
+   - `pnpm test:e2e:smoke` (renderer or cross-process changes that affect a
+     release-blocking UI path), plus `pnpm test:e2e:functional` for each
+     affected broader journey (`test:e2e:functional` includes the deterministic
+     fake Codex app-server protocol contract)
+   - `pnpm test:e2e:visual` for affected visual surfaces on Linux. Generate
+     intentional Linux baseline changes through the manual **Generate visual
+     baselines** workflow; never approve locally generated macOS/Windows
+     goldens. See `code-review/ui-regression-testing.md`.
 4. **Update the affected documentation in the same change** (local
    `design-docs/` and, when implementation invariants change,
    `code-review/`). Update README / build map copy when user-visible
@@ -181,6 +190,11 @@ Protocol, in order:
    only, unsigned — first launch is blocked by Gatekeeper; run the bundled
    `Fix.sh` (user-facing instructions ship in the DMG as
    `build/dmg-scripts/Read Me.txt`). Report the release URL.
+7. **Run packaged UI sanity.** Exercise the residual native, packaged,
+   credentialed Agent, clipboard-image, media, and multi-window checks in
+   `release-checklists/ui-sanity.md` against each applicable release-candidate
+   platform. Record failures and sanitized evidence; do not repeat automated
+   smoke journeys manually.
 
 Commands:
 

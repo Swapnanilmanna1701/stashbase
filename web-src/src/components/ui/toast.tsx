@@ -4,7 +4,7 @@ import {
   type ToastManagerAddOptions,
   type ToastManagerUpdateOptions,
 } from "@base-ui/react/toast"
-import { XIcon } from "lucide-react"
+import { CloseIcon } from "../../icons"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -218,7 +218,7 @@ function ToastClose({ className, ...props }: ToastPrimitive.Close.Props) {
       )}
       {...props}
     >
-      <XIcon className="size-3.5" aria-hidden="true" />
+      <CloseIcon className="size-3.5" aria-hidden="true" />
     </ToastPrimitive.Close>
   )
 }

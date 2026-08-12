@@ -1,0 +1,134 @@
+name: Generate visual baselines
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit to generate baselines from (defaults to the dispatched commit)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  generate-linux-baselines:
+    name: Generate Linux visual baseline patch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.5.1
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python sidecar dependencies
+        run: pnpm setup:python
+
+      - name: Reject focused or disabled E2E tests
+        id: focus
+        run: pnpm test:e2e:check-focus
+
+      - name: Build renderer
+        id: build
+        run: pnpm build:web
+
+      - name: List visual tests
+        id: list
+        run: pnpm exec playwright test --project=electron-visual-linux --list
+
+      - name: Update Linux baselines
+        id: update
+        env:
+          STASHBASE_E2E_SUMMARY_LABEL: Visual baseline update
+        run: xvfb-run -a pnpm test:e2e:visual:update
+
+      - name: Verify updated baselines
+        id: verify
+        env:
+          STASHBASE_E2E_SUMMARY_LABEL: Visual baseline verification
+        run: xvfb-run -a pnpm test:e2e:visual
+
+      - name: Create applyable binary patch
+        id: patch
+        if: always() && steps.update.outcome == 'success'
+        run: |
+          baseline_index="${RUNNER_TEMP}/visual-baselines-index-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          rm -f "$baseline_index"
+          GIT_INDEX_FILE="$baseline_index" git read-tree HEAD
+          GIT_INDEX_FILE="$baseline_index" git add -N -- e2e/visual
+          GIT_INDEX_FILE="$baseline_index" git diff --binary -- e2e/visual > visual-baselines.patch
+          git status --short -- e2e/visual > visual-baselines-status.txt
+          rm -f "$baseline_index"
+
+      - name: Upload generated baselines and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: visual-baselines-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            visual-baselines.patch
+            visual-baselines-status.txt
+            e2e/visual/**/*-snapshots/**/*.png
+            playwright-report/
+            test-results/e2e/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Summarize baseline generation
+        if: always()
+        env:
+          REQUESTED_REF: ${{ inputs.ref || github.sha }}
+          FOCUS_OUTCOME: ${{ steps.focus.outcome }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          LIST_OUTCOME: ${{ steps.list.outcome }}
+          UPDATE_OUTCOME: ${{ steps.update.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          PATCH_OUTCOME: ${{ steps.patch.outcome }}
+          ARTIFACT_NAME: visual-baselines-${{ github.run_id }}-${{ github.run_attempt }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          {
+            echo '### Linux visual baseline generation'
+            echo "Requested ref: \`${REQUESTED_REF}\`"
+            echo '| Gate | Result |'
+            echo '| --- | --- |'
+            echo "| Focus/skip policy | ${FOCUS_OUTCOME} |"
+            echo "| Renderer build | ${BUILD_OUTCOME} |"
+            echo "| Test inventory | ${LIST_OUTCOME} |"
+            echo "| Baseline update | ${UPDATE_OUTCOME} |"
+            echo "| Unchanged rerun | ${VERIFY_OUTCOME} |"
+            echo "| Binary patch | ${PATCH_OUTCOME} |"
+            echo
+            echo 'This workflow never commits or pushes. After reviewing the artifact, run the following from a local checkout of the PR head branch (with maintainer edits enabled):'
+            echo
+            echo '```sh'
+            echo "baseline_dir=\$(mktemp -d)"
+            echo "gh run download \"${RUN_ID}\" --name \"${ARTIFACT_NAME}\" --dir \"\${baseline_dir}\""
+            echo 'git apply --check "${baseline_dir}/visual-baselines.patch"'
+            echo 'git apply --binary "${baseline_dir}/visual-baselines.patch"'
+            echo 'git diff --check'
+            echo 'git diff -- e2e/visual'
+            echo 'git add e2e/visual'
+            echo 'git commit -m "test(e2e): update reviewed Linux visual baselines"'
+            echo 'git push'
+            echo '```'
+            echo
+            echo 'Do not apply the patch unless the Linux PNGs and patch have been reviewed. The patch is valid only for the exact ref shown above.'
+          } >> "$GITHUB_STEP_SUMMARY"

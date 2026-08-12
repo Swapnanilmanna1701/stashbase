@@ -8,9 +8,8 @@ import { cn } from '../../lib/utils';
 import { ImageLightbox } from '../ImageLightbox';
 import { buttonVariants } from '../ui/button';
 import { StatusMessage } from '../ui/status';
-import {
-  attachChipClass, attachIconClass, attachImageChipClass, attachImagePreviewClass, attachNameClass,
-} from './panelStyles';
+import { FileAttachmentChip } from './FileAttachmentChip';
+import { attachImageChipClass, attachImagePreviewClass } from './panelStyles';
 import type { Attachment, Block, ToolBlock } from './types';
 
 const outlineSmClass = buttonVariants({ variant: 'outline', size: 'sm' });
@@ -88,6 +87,10 @@ export function MessageList({
     // breathing room (it scrolls away with the transcript).
     <div
       className="agent-messages scrollbar-quiet flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-3 pt-0 pb-2 [&>*:first-child]:mt-3"
+      role="log"
+      aria-label="Agent conversation"
+      aria-live="polite"
+      aria-busy={turnActive}
       ref={ref}
       onScroll={onScroll}
     >
@@ -252,11 +255,10 @@ function TurnBody({ blocks, liveBlockId, streaming, meta, onPermission, onCopyUs
   // the collapsible, expanded by default, under "You stopped after X".
   if (meta?.interrupted) return <WorkTrace blocks={blocks} meta={meta} handlers={h} defaultOpen />;
 
-  // Settled normally: the last assistant block is the answer; everything
-  // before it collapses under "Worked for X", and the answer stays visible.
-  const answerIdx = lastAssistantIndex(blocks);
-  const workBlocks = answerIdx >= 0 ? blocks.slice(0, answerIdx) : blocks;
-  const answerBlocks = answerIdx >= 0 ? blocks.slice(answerIdx) : [];
+  // Settled normally: the last assistant answer OR terminal error remains
+  // visible. Everything before it collapses under "Worked for X". Hiding a
+  // terminal error in the work trace leaves a failed turn unexplained.
+  const { workBlocks, answerBlocks } = settledReplySections(blocks);
   return (
     <>
       {workBlocks.length > 0 && <WorkTrace blocks={workBlocks} meta={meta} handlers={h} />}
@@ -265,9 +267,13 @@ function TurnBody({ blocks, liveBlockId, streaming, meta, onPermission, onCopyUs
   );
 }
 
-function lastAssistantIndex(blocks: Block[]): number {
-  for (let i = blocks.length - 1; i >= 0; i--) if (blocks[i].kind === 'assistant') return i;
-  return -1;
+export function settledReplySections(blocks: Block[]): { workBlocks: Block[]; answerBlocks: Block[] } {
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    if (blocks[i].kind === 'assistant' || blocks[i].kind === 'error') {
+      return { workBlocks: blocks.slice(0, i), answerBlocks: blocks.slice(i) };
+    }
+  }
+  return { workBlocks: blocks, answerBlocks: [] };
 }
 
 /** The turn's working trace — thinking, interim narration, and tool activity —
@@ -423,11 +429,7 @@ function MessageAttachments({ attachments }: { attachments: Attachment[] }) {
             <img src={attachment.previewUrl} alt="" />
           </button>
         ) : (
-          <span key={attachment.path} className={attachChipClass} title={attachment.path}>
-            <FileGenericIcon className={attachIconClass} />
-            <span className={attachNameClass}>{attachment.name}</span>
-            {attachment.dims && <span className="shrink-0 text-muted-foreground">{attachment.dims}</span>}
-          </span>
+          <FileAttachmentChip key={attachment.path} name={attachment.name} path={attachment.path} meta={attachment.dims} />
         ))}
       </div>
       {previewAttachment?.previewUrl && (
@@ -735,13 +737,17 @@ function ToolActivityGroup({ tools, live = false, onPermission, onOpenArtifact }
     // hide behind the collapse.
     <section className="agent-activity">
       <Button
-        className="flex w-full cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-left text-sm hover:bg-muted"
+        className="group/row flex w-full cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 py-1 text-left text-sm hover:bg-muted"
         onPress={() => setOpen((value) => !value)}
         aria-expanded={open}
       >
-        <ChevronDownIcon className={cn('size-3 shrink-0 text-muted-foreground', !open && '-rotate-90')} />
-        {active && <Dot />}
+        {/* One leading glyph, Codex-style: the pulsing liveness Dot while the
+          * group is the live tail, the first step's type icon once settled.
+          * The disclosure chevron moves to the trailing edge and only fades
+          * in on hover (or while open), so a resting row is just icon + text. */}
+        {active ? <Dot /> : <ToolTypeIcon name={tools[0].name} input={tools[0].input} />}
         <span className={cn('min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-muted-foreground', active && 'agent-shimmer')}>{summary}</span>
+        <ChevronDownIcon className={cn('ml-auto size-3 shrink-0 text-muted-foreground transition-opacity', open ? 'opacity-60' : 'opacity-0 group-hover/row:opacity-60', !open && '-rotate-90')} />
       </Button>
       {open && <div className="grid gap-0.5 pb-0.5 pl-5">{tools.map((tool) => <ToolRow key={tool.id} block={tool} />)}</div>}
       <ArtifactCards changes={tools.filter((tool) => tool.status === 'done').flatMap(fileChanges)} onOpen={onOpenArtifact} />

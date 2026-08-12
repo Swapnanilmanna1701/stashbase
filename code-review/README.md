@@ -25,6 +25,9 @@ Current contracts:
   constraints.
 - [Renderer Styling](renderer-styling.md) — token layer, Tailwind mapping,
   primitives, and the CSS exemption inventory.
+- [UI Regression Testing](ui-regression-testing.md) — Electron Playwright
+  layers, isolation, visual baselines, CI artifacts, and residual release
+  sanity.
 
 Keep these files English-only and current when a code change modifies the
 contract they describe. Prefer automated tests for precise regressions; use

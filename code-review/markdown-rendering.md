@@ -35,20 +35,24 @@ CodeMirror Markdown editor, HTML preview, or iframe document surface.
 
 - Autosave reads the current Milkdown serializer value through the registered
   editor handle. A read-only document never registers a save handle. A
-  successful save acknowledgement advances only the open tab's version. It
-  must never feed submitted or server-returned Markdown back into the active
-  editor, since either content update can recreate code-block node views and
-  selection.
+  successful save acknowledgement advances the open tab's version and retains
+  the accepted source for a later tab reactivation. While a document is dirty,
+  its mounted editor ignores incoming retained source so an older in-flight
+  acknowledgement cannot recreate node views or overwrite newer live edits;
+  once clean, the retained source already equals the editor value.
 - External source refreshes use Milkdown's `replaceAll` macro and suppress the
   resulting listener callback. A React rerender with unchanged incoming content
-  must never overwrite active typing.
+  must never overwrite active typing; the initial source is considered observed
+  when the builder is created, before the editor becomes interactive.
 - `refreshDocumentDom` is a source-refresh decoration pass, not a transaction
   listener. Never run it from `markdownUpdated`: mutating Milkdown's DOM while
   CodeMirror owns a code-block node view detaches its focus and selection.
 - App-level Find and search chunk highlighting are scoped to the document root,
   never the surrounding application UI. They must continue to work after mode
   switches and document replacements. Match navigation scrolls the document's
-  own scroller, rather than the renderer window.
+  own scroller, rather than the renderer window. Controller registration effects
+  depend on the stable registration command, not the composite action bag: a
+  query update must not tear down, restore, and re-register the active controller.
 - Heading IDs derive from rendered heading text and remain stable enough for
   same-note and cross-note anchor navigation.
 - Document outlines read heading nodes from the retained ProseMirror document.
@@ -89,6 +93,11 @@ CodeMirror Markdown editor, HTML preview, or iframe document surface.
 - Preserve valid leading YAML frontmatter verbatim outside the Milkdown body.
   GitHub alert source remains ordinary blockquote Markdown and receives only a
   DOM presentation treatment; neither feature introduces a second serializer.
+- Agent-facing `write_file` and `edit_file` mutations validate the complete
+  replacement source before persistence. Reject C0 controls other than tab,
+  line feed, and carriage return without changing the existing file; these
+  bytes commonly signal that an interpreted JavaScript string consumed LaTeX
+  escapes. Valid literal backslashes must remain byte-for-byte unchanged.
 - Image activation stays within the shared app lightbox. Code blocks never
   execute, regardless of language label.
 - Do not add scripts, arbitrary embeds, remote document state, or AI features
@@ -99,7 +108,16 @@ CodeMirror Markdown editor, HTML preview, or iframe document surface.
 Run `pnpm typecheck`, `pnpm test:renderer`, and
 `npx vite build --config web-src/vite.config.ts`. Add focused tests for local
 link validation, serialization/refresh behavior, document-scoped Find, and
-local image path derivation whenever those seams change. Manually verify a
-Markdown document in the running Electron app in both Writer Mode and Reading
-View, including the slash menu, tables, code blocks, math, and link
-handling.
+local image path derivation whenever those seams change. Run
+`pnpm test:e2e:functional` for the automated Markdown journey: frontmatter
+preservation, edit/save, Writer/Reading transitions, safe local and remote
+images, external links, local-note routing, tabs, and persisted content. On
+Linux, run `pnpm test:e2e:visual` when Markdown reading/writing composition
+changes.
+
+The current Electron journey does not cover every Crepe interaction. When
+changing slash commands, tables, code blocks, math, selection popovers, or
+lightbox behavior, verify the affected interaction manually and add the
+lowest-level focused regression practical. See
+[UI Regression Testing](ui-regression-testing.md) for fixture, selector, and
+baseline rules.

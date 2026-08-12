@@ -27,7 +27,7 @@ preserving the original file as the user's visible object.
 - The UI distinguishes preparing, ready, unavailable, failed, and retryable
   states when that changes the user's next action.
 - Derived output is valid only when it corresponds to the current source.
-- Conversion completion and semantic indexing completion are different states.
+- Conversion completion and AI Index readiness are different states.
 
 ## Contribution Map
 

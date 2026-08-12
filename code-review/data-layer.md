@@ -32,9 +32,9 @@ This is not a second architecture document. `architecture.md` explains where mod
 | Cancel a transcription or mutate its source while it runs | Native inference may retain file/model handles, and a transient cancel may be silently rediscovered. | Explicit Cancel waits for task retirement and records durable `cancelled` intent until Reprocess. Rename/delete waits on a non-durable cancellation barrier, performs the filesystem mutation, then rediscovery follows the new source identity only. |
 | Run without optional native helpers | A packaged build may be missing the PDF/OCR extractor, or a native status-store dependency may fail to load. | Optional preparation/status layers must degrade to warnings or failed preparation records; opening folders and browsing source files must keep working. |
 | Import an image | OCR may fail or produce empty text. | Empty OCR text is a preparation failure for search; the source image remains viewable. |
-| Search immediately after import | Conversion completion and semantic indexing completion are different clocks. | Keyword search can use completed derived text; semantic search depends on daemon index status only when embeddings are enabled. |
+| Search immediately after import | Conversion completion and semantic indexing completion are different clocks. | Keyword search can use completed derived text; semantic retrieval depends on daemon index status only when embeddings are enabled. |
 | Reprocess a failed file | Stale derived artifacts or stale failure rows may poison the next attempt; clearing a usable transcript before discovering that its provider/model is unavailable loses good output. | Reprocess validates audio provider/runtime/model readiness first, then clears the failure row and stale output. PDF/image/DOCX/audio sources queue extraction; audio also clears chunk checkpoints and may use a per-retry language override. Directly readable files trigger reconcile/index from source. |
-| Add or remove the OpenAI API key | Folder bindings or semantic readiness may reflect stale daemon runtime config. | Reset/rebind the daemon runtime and reconcile library folders after key changes; without a key, semantic search is disabled, not pending. |
+| Add or remove the OpenAI API key | Folder bindings or semantic readiness may reflect stale daemon runtime config. | Reset/rebind the daemon runtime and reconcile library folders after key changes; without a key, semantic retrieval is disabled, not pending. |
 | Edit or replace a source file externally | Existing index rows or derived notes may describe old content. | Reconcile compares source identity and content state; stale derived/index state must not be treated as current. |
 | Agent/MCP writes a Markdown file while its open editor has a pending autosave | The external write can advance the content version, then the stale editor can retry without its old `baseVersion` and silently replace the newer disk copy. | A version conflict must preserve both the dirty editor buffer and the newer disk content until an explicit reload, merge, or overwrite decision. Never turn `FILE_CHANGED` into an automatic unversioned write. See §9.8. |
 | Rename or move a file | Old source identity may leave derived artifacts, failure rows, or index rows behind. | Source identity is absolute path; rename/move must remap or clean old app-owned state. |
@@ -110,13 +110,13 @@ Audio files and supported video containers remain the source file and can be pla
 
 The transcript records provider id/version/model, detected or requested language, source duration/signature, and timestamped segments. A checkpoint is reusable only when its content hash, source size, provider/model/language/chunk contract, and every segment field, duration bound, and half-open chunk-ownership boundary validate. Filesystem metadata-only changes do not discard inference over identical bytes. Final JSON and Markdown are written atomically only after every compatible checkpoint is assembled. Search and Agent reads use the Markdown while the synchronized player uses JSON; both retain the visible source audio path as identity.
 
-## Semantic Index
+## Semantic Indexing Pipeline
 
 Conversion completion is not semantic indexing completion.
 
 If embedding is unavailable or a daemon index write fails after extraction, conversion can still be complete: derived text exists and keyword search can use it. Semantic availability is determined by daemon index status. Converted-source indexing computes the source BLAKE3 hash with an asynchronous bounded-memory stream, then rechecks the source signature before declaring the conversion settled.
 
-Without an OpenAI API key, semantic search is disabled, not pending. `/api/index-status` reports semantic readiness separately from conversion readiness so the UI can keep keyword search available while showing semantic setup copy instead of an endless preparing state.
+Without an OpenAI API key, semantic retrieval is disabled, not pending. `/api/index-status` reports semantic readiness separately from conversion readiness so the UI can keep keyword search available while showing AI Index setup copy instead of an endless preparing state.
 
 ---
 

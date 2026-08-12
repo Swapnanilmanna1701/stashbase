@@ -487,7 +487,7 @@ export default function LibrarySearchDialog({ prefill, onClose }: {
               value="semantic"
               className={SEARCH_MODE_SEGMENT_CLASS}
               title={state.embedderHasKey === false
-                ? 'Match by meaning — needs embedding setup'
+                ? 'Match by meaning — needs AI Index'
                 : 'Match by meaning'}
             >
               Similar
@@ -511,10 +511,10 @@ export default function LibrarySearchDialog({ prefill, onClose }: {
              * and a third line repeating it was the only thing in an
              * otherwise empty panel. */
             null
-          ) : error === EMBEDDER_KEY_ERROR || (error && error.startsWith('semantic search is disabled')) ? (
+          ) : error === EMBEDDER_KEY_ERROR || (error && error.startsWith('AI Index is disabled')) ? (
             <div className="empty-list">
-              <div>Similarity search needs an embedding API key.</div>
-              <div>Exact text search works without embeddings.</div>
+              <div>Set up AI Index to search by meaning.</div>
+              <div>Exact text search works without AI Index.</div>
             </div>
           ) : error ? (
             <div className="empty-list">Search failed: {error}</div>

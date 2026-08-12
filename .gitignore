@@ -19,6 +19,8 @@ native/transcription/sidecar.nosync/
 .DS_Store
 dev-docs/
 package-lock.json
+playwright-report/
+test-results/
 
 # Chinese mirrors / drafts. The committed docs are English-only
 # (see CLAUDE.md); Chinese Markdown variants stay local.

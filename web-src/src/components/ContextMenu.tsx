@@ -16,6 +16,7 @@ export default function ContextMenu() {
   const items: MenuItem[] = [
     {
       label: 'Rename…',
+      returnFocus: false,
       onSelect: () => dispatch({ type: 'RENAMING', renaming: { path: target, kind } }),
     },
     { label: revealLabel(), onSelect: () => void api.revealFile(target) },

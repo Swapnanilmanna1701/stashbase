@@ -94,6 +94,13 @@ export function codexHistoryActions(): AgentHistoryActions {
       return visible;
     },
     messages: (id, folder) => getCodexSessionMessages(id, overrideAwareFolder('read', id, folder)),
+    async replay(id, folder) {
+      return {
+        protocol: 2,
+        messages: await getCodexSessionMessages(id, overrideAwareFolder('read', id, folder)),
+        effort: null,
+      };
+    },
     rename: (id, title, folder) => renameCodexSession(id, title, overrideAwareFolder('rename', id, folder)),
     async remove(id, folder) {
       await deleteCodexSession(id, overrideAwareFolder('delete', id, folder));

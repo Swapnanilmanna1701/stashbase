@@ -18,6 +18,7 @@ export default function ManagedMenu({
   const finalFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
+  const returnFocusRef = useRef(true);
   const virtualAnchor = useMemo(
     () => ({
       getBoundingClientRect: () => (
@@ -47,7 +48,10 @@ export default function ManagedMenu({
           sideOffset={pointAnchor ? 0 : 4}
           collisionPadding={6}
         >
-          <MenuPopup finalFocus={finalFocusRef} style={{ minWidth }}>
+          <MenuPopup
+            finalFocus={() => returnFocusRef.current ? finalFocusRef.current : false}
+            style={{ minWidth }}
+          >
             {items.map((item, index) => (
               item.separator
                 ? <MenuSeparator key={`separator-${index}`} />
@@ -60,7 +64,10 @@ export default function ManagedMenu({
                     className={item.danger
                       ? 'text-danger data-highlighted:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)]'
                       : undefined}
-                    onClick={item.onSelect}
+                    onClick={() => {
+                      returnFocusRef.current = item.returnFocus !== false;
+                      item.onSelect();
+                    }}
                   >
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="flex items-center gap-2 whitespace-nowrap">

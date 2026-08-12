@@ -49,6 +49,7 @@ export function terminalAgentState({
 
 export interface ClosableAgentSocket {
   onclose: ((...args: any[]) => unknown) | null;
+  readyState: number;
   send(value: string): void;
   close(): void;
 }
@@ -57,6 +58,11 @@ export interface ClosableAgentSocket {
  * transition through the socket's close callback. */
 export function closeAgentSocketIntentionally(ws: ClosableAgentSocket): void {
   ws.onclose = null;
-  try { ws.send(JSON.stringify({ t: 'close' })); } catch { /* already gone */ }
+  // Chromium reports send() on CLOSING/CLOSED as a console error even when
+  // the exception is caught. Only an OPEN socket can accept the courtesy
+  // close frame; close() below remains the authoritative teardown.
+  if (ws.readyState === 1) {
+    try { ws.send(JSON.stringify({ t: 'close' })); } catch { /* already gone */ }
+  }
   ws.close();
 }

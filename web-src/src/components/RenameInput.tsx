@@ -18,12 +18,14 @@ import { useApp } from '../store/AppContext';
 export function RenameInput({
   initialBasename,
   ext,
+  ariaLabel,
   onCommit,
   onCancel,
 }: {
   initialBasename: string;
   /** Extension WITH leading dot (e.g. `.md`). Empty string for folders. */
   ext: string;
+  ariaLabel: string;
   onCommit: (newBasename: string) => void;
   onCancel: () => void;
 }) {
@@ -78,6 +80,7 @@ export function RenameInput({
       <input
         ref={ref}
         type="text"
+        aria-label={ariaLabel}
         className="min-w-0 flex-1 border-0 bg-transparent py-0.5 pr-0 pl-1.5 text-left text-inherit [font:inherit] outline-none"
         defaultValue={initialBasename}
         onKeyDown={(e) => {

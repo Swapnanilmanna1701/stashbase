@@ -80,6 +80,10 @@ export class CodexSession implements AttributedAgentSession {
   private threadId: string | null = null;
   private resumeThreadId: string | null = null;
   private activeTurnId: string | null = null;
+  // An app-server can report a terminal notification in the same stdout
+  // batch as its turn/start response. Keep it until that response gives us
+  // the authoritative turn id, rather than dropping a matching failure.
+  private pendingTerminalError: JsonObject | null = null;
   private busy = false;
   private interruptRequested = false;
   private interruptingTurnId: string | null = null;
@@ -362,6 +366,7 @@ export class CodexSession implements AttributedAgentSession {
     }
 
     this.busy = true;
+    this.pendingTerminalError = null;
     this.interruptRequested = false;
     this.interruptingTurnId = null;
     this.send({ t: 'turn-start' });
@@ -405,6 +410,8 @@ export class CodexSession implements AttributedAgentSession {
       if (this.busy && id) {
         this.activeTurnId = id;
         if (this.interruptRequested) void this.requestInterruptForTurn(id);
+        const pendingError = this.takePendingTerminalError();
+        if (pendingError && stringValue(pendingError.turnId) === id) this.onErrorNotification(pendingError);
       }
     } catch (err: unknown) {
       if (err instanceof CodexRpcRequestTimeoutError && err.method === 'turn/start') {
@@ -412,6 +419,7 @@ export class CodexSession implements AttributedAgentSession {
       }
       this.busy = false;
       this.activeTurnId = null;
+      this.pendingTerminalError = null;
       if (!this.closed) {
         if (!(err instanceof CodexTurnCancelledError)) {
           this.send({ t: 'error', message: errorMessage(err) });
@@ -850,6 +858,10 @@ export class CodexSession implements AttributedAgentSession {
 
   private onErrorNotification(params: JsonObject): void {
     const turnId = stringValue(params.turnId);
+    if (this.busy && !this.activeTurnId && turnId && params.willRetry !== true) {
+      this.pendingTerminalError = params;
+      return;
+    }
     if (!this.isActiveTurn(turnId)) return;
 
     if (params.willRetry === true) {
@@ -868,6 +880,12 @@ export class CodexSession implements AttributedAgentSession {
     this.settleActiveTurn(turnId, true);
   }
 
+  private takePendingTerminalError(): JsonObject | null {
+    const pending = this.pendingTerminalError;
+    this.pendingTerminalError = null;
+    return pending;
+  }
+
   private isActiveTurn(turnId: string): boolean {
     return this.busy && !!this.activeTurnId && turnId === this.activeTurnId;
   }
@@ -876,6 +894,7 @@ export class CodexSession implements AttributedAgentSession {
     if (!this.isActiveTurn(turnId)) return false;
     this.busy = false;
     this.activeTurnId = null;
+    this.pendingTerminalError = null;
     this.interruptRequested = false;
     this.interruptingTurnId = null;
     this.send({ t: 'turn-end', isError });
@@ -939,6 +958,7 @@ export class CodexSession implements AttributedAgentSession {
     this.appServerReady = false;
     this.busy = false;
     this.activeTurnId = null;
+    this.pendingTerminalError = null;
     this.interruptRequested = false;
     this.interruptingTurnId = null;
     // The terminal exit owns this cause whether startup completed or not.

@@ -28,6 +28,25 @@ import { indexer } from './state.ts';
 
 const log = logger('library-file-mutations');
 
+/** Agent/file-tool writes are transport-independent text. C0 controls other
+ * than normal text whitespace almost always mean a caller constructed Markdown
+ * or LaTeX in an interpreted string literal (for example, `\frac` became form
+ * feed + `rac`). Refuse the mutation instead of silently corrupting user data.
+ */
+function validateLibraryTextMutation(content: string): void {
+  const match = content.match(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u);
+  if (!match) return;
+  const codePoint = match[0].codePointAt(0) ?? 0;
+  const printable = `U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`;
+  throw routeError(
+    `content contains unsupported control character ${printable}. ` +
+    'This commonly happens when Markdown or LaTeX backslashes are interpreted by a JavaScript string. ' +
+    'Construct the value with String.raw or escape each backslash; no file was changed.',
+    400,
+    'INVALID_TEXT_CONTENT',
+  );
+}
+
 export async function writeLibraryFile(
   rawPath: unknown,
   content: string,
@@ -35,6 +54,7 @@ export async function writeLibraryFile(
 ): Promise<{ path: string; version?: string; indexWarning?: string }> {
   const target = normalizeLibraryFilePath(rawPath);
   validateLibraryWritableFolderRel(target.folderRel);
+  validateLibraryTextMutation(content);
   return runWithFolderRoot(target.folderRoot, async () => {
     const result = await saveFileContent(target.folderRel, content, opts);
     return { path: target.abs, version: result.version, indexWarning: result.indexWarning };
@@ -144,7 +164,7 @@ export async function moveLibraryFile(
         }
         indexWarning = 'Searchable text is being regenerated in the background.';
       } else if (!getApiKey()) {
-        indexWarning = 'Semantic index was not updated because no embedding API key is configured.';
+        indexWarning = 'AI Index was not updated because it is not set up.';
       } else {
         const movedContent = readText(newTarget.folderRel) ?? content ?? '';
         const tooLarge = contentSizeError(movedContent);
@@ -152,7 +172,7 @@ export async function moveLibraryFile(
           await indexer.deleteFile(oldTarget.abs).catch((err) => {
             log.warn(`library move: failed to remove old index row ${oldTarget.abs}: ${errorMessage(err)}`);
           });
-          indexWarning = `${tooLarge}. The file moved, but semantic search will skip it until you split or reduce it and run sync.`;
+          indexWarning = `${tooLarge}. The file moved, but AI Index will skip it until you split or reduce it and run sync.`;
         } else {
           await indexer.renameFile(oldTarget.abs, newTarget.abs, movedContent);
         }
@@ -166,7 +186,7 @@ export async function moveLibraryFile(
     } catch (err) {
       // The disk move is already valid. Report semantic-index lag instead of
       // rolling it back after link rewrites have completed.
-      indexWarning = `Moved, but semantic index update failed: ${errorMessage(err)}`;
+      indexWarning = `Moved, but AI Index update failed: ${errorMessage(err)}`;
     }
     return {
       oldPath: oldTarget.abs,

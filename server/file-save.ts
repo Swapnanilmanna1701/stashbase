@@ -50,7 +50,7 @@ export async function upsertSavedFile(name: string, content: string): Promise<st
       log.warn(`save: failed to remove oversized file from index ${name}: ${errorMessage(err)}`);
     });
     log.warn(`save: skipped index update for ${name}: ${tooLarge}`);
-    return `${tooLarge}. Semantic search will skip it until you split or reduce it and run sync.`;
+    return `${tooLarge}. AI Index will skip it until you split or reduce it and run sync.`;
   }
   try {
     await indexer.upsertFile(toSourcePath(name), content);
@@ -58,7 +58,7 @@ export async function upsertSavedFile(name: string, content: string): Promise<st
   } catch (err: unknown) {
     const message = errorMessage(err);
     log.warn(`save: index update failed for ${name}: ${message}`);
-    return `Saved, but semantic index update failed: ${message}`;
+    return `Saved, but AI Index update failed: ${message}`;
   }
 }
 

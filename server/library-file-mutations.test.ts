@@ -93,6 +93,39 @@ test('MCP library mutations work outside an active folder and enforce versions',
   assert.equal(fs.readFileSync(source, 'utf8'), 'version one');
   assert.equal(folder.getCurrentFolder(), null);
 
+  const corruptedFormula = `[
+P_0=\frac{EPS_{\text{FY28}}\times PE}{1+r}
+]`;
+  assert.match(corruptedFormula, /[\u0008\u000c]/);
+  const corruptedSource = path.join(root, 'Drafts', 'Corrupted formula.md');
+  await assert.rejects(
+    callTool(base, token, 'write_file', {
+      path: corruptedSource,
+      content: corruptedFormula,
+    }),
+    /INVALID_TEXT_CONTENT|String\.raw/,
+  );
+  assert.equal(fs.existsSync(corruptedSource), false);
+
+  const literalFormula = String.raw`$$
+P_0=\frac{EPS_{\text{FY28}}\times PE}{1+r}
+$$`;
+  const formulaCreated = await callTool(base, token, 'write_file', {
+    path: corruptedSource,
+    content: literalFormula,
+  });
+  assert.equal(fs.readFileSync(corruptedSource, 'utf8'), literalFormula);
+  await assert.rejects(
+    callTool(base, token, 'edit_file', {
+      path: corruptedSource,
+      old_text: 'PE',
+      new_text: corruptedFormula,
+      baseVersion: formulaCreated.version,
+    }),
+    /INVALID_TEXT_CONTENT|String\.raw/,
+  );
+  assert.equal(fs.readFileSync(corruptedSource, 'utf8'), literalFormula);
+
   const updated = await callTool(base, token, 'write_file', {
     path: source,
     content: 'version two',

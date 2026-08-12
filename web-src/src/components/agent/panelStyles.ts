@@ -45,9 +45,21 @@ export const optTitleClass = 'text-sm font-medium';
 export const optDescClass = 'text-xs leading-snug text-muted-foreground';
 export const optCheckClass = 'mt-0.5 size-4 shrink-0 text-accent';
 
-/** Compact file chip shown in the composer and in sent transcript turns. */
+/** File attachment card shown in the composer and in sent transcript turns:
+ *  a muted type glyph, the filename, and its type label under it (GPT-style
+ *  two-line card, kept in the panel's neutral palette). */
 export const attachChipClass =
-  'inline-flex max-w-65 items-center gap-1 rounded-md border border-border bg-muted py-0.75 pr-1 pl-1.75 text-xs text-foreground';
+  'inline-flex max-w-72 items-center gap-2 rounded-lg border border-border bg-muted py-1.5 pr-1.5 pl-2 text-xs text-foreground';
+
+/** Neutral rounded tile holding the muted file-type glyph inside the card. */
+export const attachIconTileClass =
+  'grid size-8 shrink-0 place-items-center rounded-md bg-background text-muted-foreground [&_svg]:size-4.5';
+
+/** The stacked name + type-label column inside the card. */
+export const attachTextClass = 'flex min-w-0 flex-col gap-0.5 leading-tight';
+
+/** The secondary type label (e.g. "PDF") under the filename. */
+export const attachTypeClass = 'text-[0.6875rem] uppercase tracking-wide text-muted-foreground';
 
 /** 64px image thumbnail chip (composer removable + transcript static). */
 export const attachImageChipClass =
@@ -65,6 +77,4 @@ export const attachImageRemoveClass =
 export const attachRemoveClass =
   'grid size-4 shrink-0 cursor-pointer place-items-center rounded-sm border-0 bg-transparent p-0 text-lg leading-none text-muted-foreground hover:bg-active hover:text-foreground';
 
-export const attachIconClass = 'size-3.25 shrink-0 text-muted-foreground';
-
-export const attachNameClass = 'overflow-hidden text-ellipsis whitespace-nowrap';
+export const attachNameClass = 'overflow-hidden text-ellipsis whitespace-nowrap font-medium';

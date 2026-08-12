@@ -9,7 +9,7 @@ test('Retrieval reports unavailable semantic mode without invoking its adapter',
   let called = false;
   const retrieval = createRetrieval({
     hasEmbeddingKey: () => false,
-    semanticSearch: async () => {
+    vectorSearch: async () => {
       called = true;
       return [];
     },
@@ -51,7 +51,7 @@ test('Retrieval normalizes keyword matches into flat visible-source evidence', a
 test('Retrieval preserves semantic source identity and source-safe locators', async () => {
   const retrieval = createRetrieval({
     hasEmbeddingKey: () => true,
-    semanticSearch: async () => [{
+    vectorSearch: async () => [{
       fileName: '/library/paper.pdf', chunkIndex: 3, content: 'derived evidence', heading: 'Results',
       startLine: 42, endLine: 45, pdfPage: 7, score: 0.9,
     }],
@@ -69,7 +69,7 @@ test('Retrieval maps source categories to semantic index extension filters', asy
   let extensions: string[] | undefined;
   const retrieval = createRetrieval({
     hasEmbeddingKey: () => true,
-    semanticSearch: async (_query, _topK, _folderRoot, _pathPrefix, requestedExtensions) => {
+    vectorSearch: async (_query, _topK, _folderRoot, _pathPrefix, requestedExtensions) => {
       extensions = requestedExtensions;
       return [];
     },
@@ -91,7 +91,7 @@ test('Retrieval remaps scoped semantic legacy-derived hits to their visible sour
     fs.writeFileSync(sourcePath, 'source');
     const retrieval = createRetrieval({
       hasEmbeddingKey: () => true,
-      semanticSearch: async () => [{
+      vectorSearch: async () => [{
         fileName: path.join(folderRoot, '.paper.pdf.md'), chunkIndex: 0,
         content: 'derived evidence', heading: '', score: 1,
       }],

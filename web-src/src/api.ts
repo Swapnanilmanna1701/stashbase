@@ -314,7 +314,7 @@ export const api = {
   /** Set or rotate the active embedding provider key. */
   changeApiKey: (key: string, provider?: EmbedderProvider) =>
     send<ApiKeySaveResult>('PUT', '/api/embedder/key', { key, provider }),
-  /** Clear the active embedding key. Embedding and semantic search stay
+  /** Clear the active embedding key. Embedding and semantic retrieval stay
    *  disabled until a key is added back; keyword search is unaffected. */
   removeApiKey: () =>
     send<{ hasKey: false; provider: EmbedderProvider; model: string }>('DELETE', '/api/embedder/key'),

@@ -22,8 +22,8 @@ to migrate them into a StashBase-specific storage model.
   It leads with a `+`, not an Agent mark: the row's job is starting a
   chat, and which Agent that will be is named at the row's right edge,
   beside the chevron that changes it. Its main area starts a chat with
-  the last-selected Agent; the chevron offers New Claude Code Chat / New
-  Codex Chat, and picking one also makes that Agent the new default. The
+  the last-selected Agent; the chevron chooses Claude Code or Codex as
+  the new default without starting a chat. The
   chat is scoped to the window's current folder, or to the whole library
   when no folder is current, and a completely blank chat is reused
   (switching its Agent in place when needed) instead of stacking empty
@@ -36,7 +36,7 @@ to migrate them into a StashBase-specific storage model.
   Below it, the Library section lists every other member folder as a single
   compact row on the pane surface — favorites (all of them) pinned first,
   then the rest in recents order. The Library section's position is fixed:
-  it always anchors to the sidebar bottom (above the Settings row), so
+  it always anchors to the sidebar bottom (above the account row), so
   opening a folder never makes it jump, and the expanded list keeps one
   height whether or not a folder is open — about five rows, with a
   half-row peek hinting at the overflow, scrolling internally past that.
@@ -105,6 +105,14 @@ to migrate them into a StashBase-specific storage model.
   file is focused rather than reopened. There is no preview/pinned tab split —
   one click always opens a lasting tab.
 - PDF tabs retain their active reading position (page number) across tab switches during a session. Opening a different file in a tab resets the stored page position.
+- A PDF opens fitted to the pane width — edge to edge, with no side margin,
+  and none above it either; zoom away from fit and the page takes the same
+  margin above it that it takes between pages. Its reading controls sit in
+  one quiet row at the top of the pane: zoom,
+  the current zoom level (click it for actual size), a Fit toggle that stays
+  pressed while auto-fit holds, and the current page over the total, which is
+  also the jump-to-page field. Page position lives there rather than beside
+  each page, since a fitted page leaves no margin to put it in.
 - Cmd/Ctrl+T opens a new blank tab, the keyboard equivalent of the tab
   strip's `+` button — distinct from Cmd/Ctrl+N, which creates a note file.
 - Cmd/Ctrl+O opens a focused Quick Open for visible source files in the active
@@ -130,14 +138,14 @@ to migrate them into a StashBase-specific storage model.
 - Root-level `AGENTS.md` and optional `CLAUDE.md` bridge files are visible,
   editable user files. StashBase only creates missing defaults.
 - Opening a folder starts changed-content indexing checks in the background.
-  When the pending semantic workload is unusually large, a persistent,
-  non-blocking notice lets the user start it or leave it paused for that folder.
+  When the pending AI Index workload is unusually large, a persistent,
+  non-blocking notice lets the user build it or leave it paused for that folder.
 
 ## Experience Contract
 
 - Opening a folder should feel like navigation, not a long preparation task.
-- Deferring semantic indexing must not block browsing, editing, preparation, or
-  keyword search, and the decision must remain recoverable after restart.
+- Deferring AI Index must not block browsing, editing, preparation, or exact
+  text search, and the decision must remain recoverable after restart.
 - Opening or closing one window must not switch or close another window's
   folder context.
 - Window lifecycle shortcuts must not be interpreted as document-tab commands.
@@ -168,7 +176,7 @@ to migrate them into a StashBase-specific storage model.
   or project-management surface. The active folder zone (current folder
   header and file tree) fills all the room the bottom group leaves; that
   group holds the document outline, then the Library folder list, then the
-  Settings row. The outline section belongs to an open document: it appears
+  account row. The outline section belongs to an open document: it appears
   whenever one is open in a folder — whatever its format, so switching tabs
   never shifts the sections below — and states plainly when the document has
   no headings or cannot have an outline. An expanded outline holds a fixed
@@ -180,15 +188,28 @@ to migrate them into a StashBase-specific storage model.
   rail: the
   sidebar toggle and Search live as shell controls in the titlebar band at
   the window's top-left (they stay put when the sidebar is collapsed, so
-  the toggle is always the way back in), and Settings is a quiet row at
-  the sidebar's bottom. That row's right end carries the get-help cluster:
-  Report a bug (a disabled placeholder until the report flow ships) and a
-  link to the community Discord. Reaching a human is the app's only escape
-  hatch when something is wrong, so it stays in persistent chrome instead
-  of behind a menu — and stays on the strip's muted neutral, because a
-  brand-coloured control that is always on screen would outrank the user's
-  own files.
- - StashBase displays only supported document, structured-data, and media formats in the Files panel. Unsupported files are classified into source-code/project files and other unsupported formats. Dot-prefixed files (`.DS_Store`, tool configs) are invisible infrastructure: never listed and never counted as unsupported, and a folder holding only dot-files reads as physically empty. Folders that contain only unsupported files are pruned from the directory tree to keep navigation clean, while physically empty folders and folders with supported files remain visible. Users are notified of hidden unsupported files via a first-time onboarding explanation modal and a dismissable callout card in the Files panel — dismissal is per folder and persists, and the card returns when a new unsupported category appears.
+  the toggle is always the way back in). The sidebar's bottom row is a
+  quiet identity strip: an avatar chip and the account name on the left,
+  and on the right a utility cluster of the community Discord, Report a bug
+  (a disabled placeholder until the report flow ships), and Settings at the
+  far-right edge. Settings is an icon there rather than a labelled row; it
+  keeps a tooltip and its Command Palette entry instead of hiding inside an
+  identity menu. Reaching a human is the app's
+  only escape hatch when something is wrong, so the Discord link stays in
+  persistent chrome instead of behind a menu — and stays on the strip's
+  muted neutral, because a brand-coloured control that is always on screen
+  would outrank the user's own files.
+- Nobody has to sign in. Until an account exists the identity strip reads
+  **Anonymous**, which is a finished state and is presented as one: the row
+  is static and carries no sign-in button, badge, dot, or index-readiness
+  marker. Its label has lower contrast than navigation labels, keeping
+  identity available without competing with the Library hierarchy. AI Index
+  setup and source management stay in their existing
+  callout and Settings surfaces; the identity strip does not repeat them in
+  an account menu before a real account action exists. The utility actions
+  on the row use a slightly larger optical size than dense list actions so
+  Settings and help remain clear without loosening the surrounding sidebar.
+- StashBase displays only supported document, structured-data, and media formats in the Files panel. Unsupported files are classified into source-code/project files and other unsupported formats. Dot-prefixed files (`.DS_Store`, tool configs) are invisible infrastructure: never listed and never counted as unsupported, and a folder holding only dot-files reads as physically empty. Folders that contain only unsupported files are pruned from the directory tree to keep navigation clean, while physically empty folders and folders with supported files remain visible. Users are notified of hidden unsupported files via a first-time onboarding explanation modal and a dismissable callout card in the Files panel — dismissal is per folder and persists, and the card returns when a new unsupported category appears.
 - Quick Open is file navigation, not content retrieval: it stays scoped to the
   active folder and does not surface generated artifacts or search evidence.
 - Command Palette exposes only safe, context-available actions the app already

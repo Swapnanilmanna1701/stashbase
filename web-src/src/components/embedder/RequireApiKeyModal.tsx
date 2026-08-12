@@ -1,18 +1,39 @@
 /**
- * Auto-pops on folder open when no embedding key is on file. Without a
- * key, embedding/index updates and semantic search are disabled. Two
- * exits:
+ * The first-run AI Index setup dialog (see `EmbedderRequireKeyGate`).
+ *
+ * Setting up an indexing source is strongly recommended, not forced: an
+ * unindexed library still browses, edits, previews, and keyword-searches —
+ * those are local computations, and open-source, local-first software must
+ * not lock them behind a remote service. So the dialog has an exit, but a
+ * low-emphasis, deliberate one; there is no casual dismiss (Escape / backdrop
+ * do nothing), so the user makes an explicit choice rather than swatting a
+ * prompt.
+ *
+ * Two views:
+ *   • choice — sign in (recommended, hosted) · use your own key · a quiet
+ *     "Skip for now" exit.
+ *   • key    — provider toggle + key field; "Save key" activates. A Back link
+ *     returns to the choice.
+ *
+ * The exit is one deliberate, low-emphasis button, not a confirm hop: "for
+ * now" already says the choice is reversible and the Files-panel entry
+ * reopens this, while a confirm that itemised the surviving local abilities
+ * would package keyword search as a peer feature — which it is not meant to
+ * be.
+ *
+ * Exits:
  *   • Save key — validates + persists via `/api/embedder/key`, daemon
- *     hot-swap, modal closes.
- *   • Later — dismiss; modal will re-pop next time the folder opens.
- * We deliberately don't show a plain "Cancel" — "Later" is the soft
- * escape.
+ *     hot-swap; the dialog closes and the library is activated.
+ *   • Skip AI Index for now — the caller records the choice for this window;
+ *     the Files panel keeps a quiet "Set up AI Index" entry for later.
  */
 import { useRef, useState } from 'react';
 import { api, ApiError, errorMessage, type EmbedderProvider } from '../../api';
 import ManagedModalShell from '../ManagedModalShell';
+import { EmbeddingAuthChoice } from './EmbeddingAuthChoice';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control';
 import { StatusMessage } from '../ui/status';
 
 const PROVIDERS: Record<EmbedderProvider, { label: string; model: string; placeholder: string }> = {
@@ -30,22 +51,47 @@ const PROVIDERS: Record<EmbedderProvider, { label: string; model: string; placeh
 
 const PROVIDER_ORDER: EmbedderProvider[] = ['openai', 'openrouter'];
 
+type View = 'choice' | 'key';
+
+const TITLES: Record<View, string> = {
+  choice: 'Set up AI Index',
+  key: 'Add your API key',
+};
+
+/* One line, scannable at a glance. The old subtitle explained the
+ * mechanism ("…even when the wording is different") — product copy in a
+ * dialog whose job is a choice, and the sentence that started every layer
+ * of this screen running two lines deep. */
+const DESCRIPTIONS: Record<View, string> = {
+  choice: 'Help Agents find context across your files.',
+  key: 'Paste an OpenAI or OpenRouter key.',
+};
+
 export function RequireApiKeyModal({
   initialProvider = 'openai',
   isTopmost,
   onSaved,
-  onLater,
+  onSkip,
 }: {
   initialProvider?: EmbedderProvider;
   isTopmost: boolean;
   onSaved: (provider: EmbedderProvider, model: string, backfillStarted?: boolean, warning?: string) => void;
-  onLater: () => void;
+  onSkip: () => void;
 }) {
   const [provider, setProvider] = useState<EmbedderProvider>(initialProvider);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('choice');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Opening focus for the choice view. Base UI otherwise hands focus to
+  // the first enabled control — here the second card, because the first
+  // is inert — and a focus ring around a full-width card reads as "this
+  // one is already picked", the single thing this screen must not say.
+  // A tabindex=-1 wrapper takes the focus silently (globals.css drops the
+  // ring for elements the keyboard cannot tab to) and Tab still steps
+  // into the cards from there.
+  const choiceRef = useRef<HTMLDivElement | null>(null);
 
   async function submit() {
     const k = key.trim();
@@ -67,41 +113,60 @@ export function RequireApiKeyModal({
 
   return (
     <ManagedModalShell
-      title="Add embedding key"
-      description="Semantic search uses embeddings. Choose a provider, then paste the API key. Keyword search and editing work without it."
-      initialFocus={inputRef}
-      onCancel={busy ? () => { /* swallow */ } : onLater}
+      title={TITLES[view]}
+      description={DESCRIPTIONS[view]}
+      // A tight column: this is a short, choice-style dialog, and the default
+      // width let the description prose run past a comfortable measure.
+      narrow
+      // Per view, and never nothing: focusing a ref whose element is not
+      // mounted drops focus to the document and strands keyboard users.
+      // The key view lands in the field; the choice view lands on its
+      // inert wrapper rather than on a card (see `choiceRef`).
+      initialFocus={view === 'key' ? inputRef : choiceRef}
+      // No casual dismiss. Backdrop clicks are disabled and the close request
+      // (Escape) is swallowed — the way out is an explicit choice: activate,
+      // or take the deliberate "Skip for now" path.
+      closeOnBackdrop={false}
+      onCancel={() => { /* no casual dismiss — choose activate or skip */ }}
       isTopmost={isTopmost}
     >
-      <div className="mb-2 inline-flex max-w-full items-center overflow-hidden rounded-md border border-border bg-background" role="radiogroup" aria-label="Embedding provider">
-        {PROVIDER_ORDER.map((optionProvider) => {
-          const option = PROVIDERS[optionProvider];
-          const selected = provider === optionProvider;
-          return (
-            <button
-              key={optionProvider}
-              type="button"
-              className={
-                'min-h-[30px] cursor-pointer border-0 border-l border-border px-2.75 text-sm '
-                + 'whitespace-nowrap text-foreground transition-colors duration-fast first:border-l-0 '
-                + 'enabled:hover:bg-muted disabled:cursor-default disabled:opacity-60 '
-                + (selected ? 'bg-accent/10 font-semibold' : 'bg-transparent font-medium')
-              }
-              role="radio"
-              aria-checked={selected}
-              disabled={busy}
-              onClick={() => {
-                setProvider(optionProvider);
-                setKey('');
-                setError(null);
-              }}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-      <div className="mb-2.5 flex flex-wrap gap-x-3 gap-y-1 text-base leading-normal text-muted-foreground [&_code]:font-mono [&_code]:text-sm [&_code]:text-accent">
+      {view === 'choice' && (
+        <div ref={choiceRef} tabIndex={-1} className="outline-none">
+          <EmbeddingAuthChoice
+            onUseOwnKey={() => setView('key')}
+            onSkip={onSkip}
+          />
+        </div>
+      )}
+
+      {view === 'key' && (
+      <>
+      {/* The shared segmented control, not a hand-rolled radio row: that
+        * one marked its selection with a heavier font, which at one size
+        * reads as "these two words are different sizes", and it stretched
+        * to the dialog width so the two providers got unequal shares. */}
+      <SegmentedControl
+        aria-label="Embedding provider"
+        className="mb-2 w-fit"
+        disabled={busy}
+        value={[provider]}
+        onValueChange={(next) => {
+          const picked = next[0] as EmbedderProvider | undefined;
+          if (!picked || picked === provider) return;
+          setProvider(picked);
+          setKey('');
+          setError(null);
+        }}
+      >
+        {PROVIDER_ORDER.map((optionProvider) => (
+          <SegmentedControlItem key={optionProvider} value={optionProvider} className="min-w-24 text-sm">
+            {PROVIDERS[optionProvider].label}
+          </SegmentedControlItem>
+        ))}
+      </SegmentedControl>
+      {/* Detail, not body: at 13px these two lines carried the same
+        * weight as the question above them. */}
+      <div className="mb-2.5 flex flex-wrap gap-x-3 gap-y-1 text-xs leading-normal text-muted-foreground [&_code]:font-mono [&_code]:text-2xs [&_code]:text-accent">
         <span>Model: <code>{PROVIDERS[provider].model}</code></span>
         <span>Stored locally in <code>~/.stashbase/config.json</code></span>
       </div>
@@ -124,19 +189,25 @@ export function RequireApiKeyModal({
           {error}
         </StatusMessage>
       )}
-      <div className="mt-3.5 flex justify-end gap-2">
-        <Button
+      <div className="mt-3.5 flex items-center justify-between gap-2">
+        {/* Same quiet text exit as the choice view's "Skip for now": both
+          * are the low-emphasis way OUT of this dialog, so they read as
+          * one control at two moments — no resting underline, no button
+          * box beside the primary action, underline on hover only. */}
+        <button
           type="button"
-          variant="outline"
-          onClick={onLater}
+          className="cursor-pointer border-0 bg-transparent p-0 text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline disabled:cursor-default disabled:opacity-60"
+          onClick={() => { setView('choice'); setError(null); }}
           disabled={busy}
-        >Later</Button>
+        >Back</button>
         <Button
           type="button"
           onClick={submit}
           disabled={busy}
         >{busy ? 'Validating…' : 'Save key'}</Button>
       </div>
+      </>
+      )}
     </ManagedModalShell>
   );
 }

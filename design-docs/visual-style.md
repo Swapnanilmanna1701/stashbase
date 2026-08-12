@@ -28,10 +28,11 @@ them:
 - **Cyan + amber color pair.** Cyan is the working accent — interactive
   emphasis, focus, progress, info — but NOT selection surfaces: selected
   rows/pills use a quiet neutral one step past hover, because accent
-  washes at row width read loud. Amber is the counterpoint,
-  used sparingly where the brand shows (file-type marks, the occasional
-  brand moment). The pairing comes from the `.html`/`.md` file icons and is
-  deliberately not the generic AI-product purple. Sparingly is a hard
+  washes at row width read loud. Amber is the counterpoint, used sparingly
+  where the brand shows — search-hit marks, the occasional brand moment.
+  The pairing was drawn from the old `.html`/`.md` file icons; those icons
+  are muted now, but the hues stayed because they read as a tool rather
+  than as the generic AI-product purple. Sparingly is a hard
   budget: at most one amber moment per screen, and never on repeated
   elements (an icon that appears once per row multiplies into a loud
   surface). A screen that already reads cyan + amber + neutral is full —
@@ -43,6 +44,23 @@ them:
   fashion. Each voice is a single token (`--font-sans` / `--font-serif` /
   `--font-mono`, wired into the Tailwind `font-*` utilities); a surface that
   hand-writes its own stack is drift, not a fourth voice.
+- **One icon set.** Every glyph comes from Phosphor in `currentColor`. A peer
+  cluster shares one optical size; sparse corner utilities may sit one step
+  above dense list actions, but sizes never mix inside the same group. Weight
+  is chosen by picking a different asset (`regular`
+  for chrome, `fill` where a solid silhouette carries meaning), never by
+  restyling one — mixing sets or hand-drawing a "close enough" glyph shows
+  up as inconsistent corner radii and stroke terminals long before anyone
+  can name what is wrong. The only exception is product brand marks (Claude,
+  Codex, the StashBase cube), which have no equivalent in any icon set and
+  keep their own colour — a logo is not a category, and each appears at most
+  once on screen.
+- File-type glyphs are **not** an exception. They use a solid silhouette
+  with the format's letterform knocked out, in the same muted chrome colour
+  as every other glyph. A hue per file type is the repeated-element case the
+  colour budget exists to prevent: it makes the sidebar the loudest surface
+  in the app while the user's own document sits beside it in black on white.
+  Shape carries the format; colour is not spent on it.
 
 ## Type scale
 
@@ -81,9 +99,15 @@ view, editor, agent prose) follows its own reading sizes, not this scale.
   (surface, text, stroke, accent) with a value per theme; a change that only
   looks right in one theme is not done.
 - Text ranks in three steps: primary for content, secondary for meta, and
-  placeholder — lighter than secondary — for the hint in an empty field. The
+  placeholder — lighter than secondary — for a slot holding no value yet. The
   third step is not a nicety: at the secondary weight an empty field reads as
-  a filled one, which is the one thing a placeholder must never do.
+  a filled one, which is the one thing a placeholder must never do. It is not
+  an input-only role — any standing string that stands in for a value nobody
+  has supplied takes it, such as the signed-out account name in the sidebar.
+  Doing so earns a state signal for free: the real value arrives at secondary
+  weight, so the ink steps up on its own and no dot, badge, or colour is
+  spent saying the slot is now filled. Three steps is the whole ladder; a
+  string that feels like it wants a fourth is asking for the wrong fix.
 - A role is a color, never an opacity. Fading a role down per surface
   (`muted-foreground/55` here, 65% there) is how one role quietly becomes
   four, each unfixable without hunting every call site; if a use needs a
@@ -101,6 +125,14 @@ view, editor, agent prose) follows its own reading sizes, not this scale.
   three neighbours — chrome, canvas, paper — stay mutually perceptible.
   A layout change resizes a pane; it never recolors one — surface roles
   must not depend on layout, or switching reads as a mode jump.
+- The PDF viewer is the one document pane that inverts this: its pages are
+  physical sheets, so the canvas behind them is sunken and the paper is the
+  only white in it. It fits a page to the full pane width, so that canvas
+  shows where it means something — between sheets, and around a page the
+  user has zoomed away from — and never as a decorative margin. Chrome above
+  such a pane stays on the base surface and separates with a stroke: tint it
+  and a fitted page turns the band into a third colour wedged between two
+  whites.
 - Separation comes from 1px subtle strokes and surface changes, not shadows.
 - Shadow is reserved for transient overlays (menus, dialogs, toasts) — the
   one elevation treatment — so floating things read as floating and nothing
@@ -154,9 +186,23 @@ view, editor, agent prose) follows its own reading sizes, not this scale.
 - The send button is the counterweight: a true circle, the terminal action,
   deliberately not a smaller echo of the box around it.
 - True circles and capsules (the send button, the transcript's
-  jump-to-latest pill, status dots) opt out of the squircle, because at
-  those radii a squircle is a bulged superellipse rather than the shape
-  being drawn. Buttons that are not circular never render as pills.
+  jump-to-latest pill, status dots, the account avatar) opt out of the
+  squircle, because at those radii a squircle is a bulged superellipse
+  rather than the shape being drawn. Buttons that are not circular never
+  render as pills.
+- A circle around a glyph or a letter means **a person**, and nothing else
+  claims that shape. It is the whole reason the sidebar's account row is
+  not read as one more navigable item in the stack of rows above it, so
+  spending the circle on a non-identity chip would cost more than it buys.
+  The chip is a container with content, not an enlarged icon: the glyph
+  inside runs below the standalone utility cluster because it must fit
+  within that identity container. The circle is drawn larger than the
+  16px layout slot it occupies, bleeding symmetrically into padding that is
+  already empty — at slot size it was the faintest mark in a row of full-size
+  glyphs, and widening the slot instead would push the label off the shared
+  gutter. That gutter caps the circle a few pixels past the slot: a larger
+  avatar than that is a decision to give up the alignment, not a way to find
+  more room.
 - List hover and selection render as an inset rounded pill — a row surface
   on the UI radius, inset from the panel edges — never a full-bleed band or
   an accent edge bar.

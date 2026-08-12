@@ -42,13 +42,13 @@ export interface RetrievalResult {
 
 export interface RetrievalDependencies {
   hasEmbeddingKey: () => boolean;
-  semanticSearch: (query: string, topK: number, folderRoot?: string, pathPrefix?: string, extensions?: string[]) => Promise<SearchHit[]>;
+  vectorSearch: (query: string, topK: number, folderRoot?: string, pathPrefix?: string, extensions?: string[]) => Promise<SearchHit[]>;
   keywordSearch: (query: string, folderRoot: string, opts: KeywordSearchOpts) => Promise<{ files: import('../search-display.ts').KeywordHitFile[]; truncated: boolean }>;
 }
 
 const productionDependencies: RetrievalDependencies = {
   hasEmbeddingKey: () => Boolean(getApiKey()),
-  semanticSearch: (query, topK, folderRoot, pathPrefix, extensions) =>
+  vectorSearch: (query, topK, folderRoot, pathPrefix, extensions) =>
     indexer.search(query, topK, folderRoot, pathPrefix, extensions),
   keywordSearch: runKeywordSearch,
 };
@@ -68,7 +68,7 @@ export function createRetrieval(overrides: Partial<RetrievalDependencies> = {}):
         if (!deps.hasEmbeddingKey()) {
           return { evidence: [], availability: { state: 'unavailable', reason: 'embedding-key-required' }, truncated: false };
         }
-        const hits = await deps.semanticSearch(
+        const hits = await deps.vectorSearch(
           text,
           query.topK ?? 8,
           query.folderRoot,

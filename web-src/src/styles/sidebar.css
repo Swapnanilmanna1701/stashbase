@@ -199,10 +199,11 @@
       color: var(--muted);
     }
 
-    /* Format glyphs (md / html / pdf) come from the Material Icon Theme and
-     * carry their own brand `fill` — no `currentColor` tint here. The old
-     * `.format-md` / `.format-html` colour rules were dropped: they only
-     * affected `currentColor`, which the filled Material SVGs don't use. */
+    /* Format glyphs are Phosphor `fill` assets painted with `currentColor`,
+     * so the `.icon svg` rule above tints them like every other glyph in the
+     * tree. There are deliberately no per-format colour rules: a hue per row
+     * turns the sidebar into the loudest surface in the app, which is the
+     * repeated-element case the colour budget exists to prevent. */
 
     .tree-row .label {
       flex: 1;

@@ -115,6 +115,7 @@ export function JsonDocument({ tabId, content, readOnly, active }: {
   active: boolean;
 }) {
   const { actions, activeTab, dispatch } = useApp();
+  const registerFindController = actions.registerFindController;
   const hostRef = useRef<HTMLDivElement | null>(null);
   const sessionRef = useRef<JsonEditorSession | null>(null);
 
@@ -153,16 +154,17 @@ export function JsonDocument({ tabId, content, readOnly, active }: {
   }, [actions, active, readOnly]);
 
   useEffect(() => {
+    if (activeTab?.dirty) return;
     sessionRef.current?.replaceFromDisk(content);
-  }, [content]);
+  }, [activeTab?.dirty, content]);
 
   useEffect(() => {
     if (!active) return;
     const controller = sessionRef.current?.find;
     if (!controller) return;
-    actions.registerFindController(controller);
-    return () => actions.registerFindController(null);
-  }, [actions, active]);
+    registerFindController(controller);
+    return () => registerFindController(null);
+  }, [registerFindController, active]);
 
   const pendingHighlight = activeTab?.pendingHighlight ?? null;
   useEffect(() => {
@@ -174,7 +176,16 @@ export function JsonDocument({ tabId, content, readOnly, active }: {
     actions.consumePendingHighlight();
   }, [actions, content, pendingHighlight]);
 
-  return <div ref={hostRef} className="json-document min-h-0 overflow-hidden" data-tab-id={tabId} hidden={!active} />;
+  return (
+    <div
+      ref={hostRef}
+      className="json-document min-h-0 overflow-hidden"
+      data-tab-id={tabId}
+      role="region"
+      aria-label="JSON document"
+      hidden={!active}
+    />
+  );
 }
 
 export function makeJsonFindController(getView: () => EditorView | null): LiveFindController {

@@ -45,9 +45,9 @@ export function SemanticIndexingNoticeView({
   return (
     <StatusMessage tone="warning" className="mx-3 mb-2 flex items-start justify-between gap-2.5 px-2.25 py-2">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <div className="font-semibold">{awaiting ? 'Large semantic indexing workload' : 'Semantic indexing paused'}</div>
+        <div className="font-semibold">{awaiting ? 'Large AI Index workload' : 'AI Index paused'}</div>
         <div className="leading-snug opacity-90">
-          About {count.toLocaleString()} file{count === 1 ? '' : 's'} waiting{size}. Indexing may take a while and use embedding-provider quota. Keyword search remains available.
+          About {count.toLocaleString()} file{count === 1 ? '' : 's'} waiting{size}. Building AI Index may take a while and use provider quota. Exact text search remains available.
         </div>
         {failureMessage && (
           <div className="leading-snug opacity-90" role="alert">
@@ -57,7 +57,7 @@ export function SemanticIndexingNoticeView({
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <button type="button" className={noticeButtonClass} onClick={onStart}>
-          {awaiting ? 'Index now' : 'Start indexing'}
+          {awaiting ? 'Build AI Index' : 'Resume AI Index'}
         </button>
         {awaiting && <button type="button" className={noticeButtonClass} onClick={onDefer}>Not now</button>}
       </div>

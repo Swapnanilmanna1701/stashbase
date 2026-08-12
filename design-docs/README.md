@@ -35,7 +35,7 @@ directory or a replacement for issues and source code.
 | [Markdown](design/markdown.md) | Reading, writing, linking, and previewing Markdown | Authoring experience and preview fidelity |
 | [Local File Workspace](design/library.md) | Folders, file tree, tabs, and source-file workflows | Clearer everyday file operations |
 | [Preparation](design/preparation.md) | Format conversion and readiness | Recovery, diagnostics, and format support |
-| [Search and Retrieval](design/search.md) | Keyword, semantic, and MCP retrieval | Search clarity and result quality |
+| [Search and Retrieval](design/search.md) | Exact text, AI Index, and MCP retrieval | Search clarity and result quality |
 | [Agent Panel](design/agent-panel.md) | Built-in Claude/Codex side panel | Safe, compact agent collaboration |
 | [Feedback and Bug Reports](design/feedback.md) | Privacy-safe local report preparation and user-controlled sharing | Actionable diagnostics without telemetry |
 

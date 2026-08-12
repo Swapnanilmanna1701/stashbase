@@ -261,7 +261,7 @@ export function useFileActions(
       if (j.indexWarning) {
         toast('Renamed. ' + j.indexWarning, { level: 'warning' });
       } else if (j.indexDeferred) {
-        toast('Renamed. Updating semantic index in the background.', { level: 'info' });
+        toast('Renamed. Updating AI Index in the background.', { level: 'info' });
       }
     } catch (e: unknown) {
       if (stateRef.current.folderPath !== targetFolderPath) return;
@@ -353,7 +353,7 @@ export function useFileActions(
       if (j.indexWarning) {
         toast('Moved. ' + j.indexWarning, { level: 'warning' });
       } else if (j.indexDeferred) {
-        toast('Moved. Updating semantic index in the background.', { level: 'info' });
+        toast('Moved. Updating AI Index in the background.', { level: 'info' });
       }
       return true;
     } catch (e: unknown) {

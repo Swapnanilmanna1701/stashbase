@@ -16,7 +16,7 @@ import {
   type JsonObject,
 } from './codex-protocol.ts';
 import { CodexRpcPeer, CODEX_RPC_REQUEST_TIMEOUT_MS } from './codex-rpc-transport.ts';
-import { historyImageAttachment, restoreHistoryImageAttachments, type RestoredImageAttachment } from './agent-history-attachments.ts';
+import { historyImageAttachment, restoreHistoryAttachments, type RestoredAttachment } from './agent-history-attachments.ts';
 
 const log = logger('codex-history');
 
@@ -29,14 +29,15 @@ export interface CodexSessionRow {
 }
 
 export type CodexSessionBlock =
-  | { kind: 'user'; id: string; text: string; attachments?: CodexImageAttachment[] }
+  | { kind: 'user'; id: string; text: string; attachments?: CodexAttachment[] }
   | { kind: 'assistant'; id: string; text: string }
   | { kind: 'thinking'; id: string; text: string }
   | { kind: 'tool'; id: string; name: string; input: Record<string, unknown>; status: 'done' | 'error'; result?: string };
 
-/** A restored transcript can only preview images originally uploaded through
- * StashBase's transient attachment route. */
-export type CodexImageAttachment = RestoredImageAttachment;
+/** A restored file attachment: a name-only document card, or — only for images
+ * originally uploaded through StashBase's transient attachment route — a
+ * previewable thumbnail. */
+export type CodexAttachment = RestoredAttachment;
 
 export async function listCodexSessions(folder: string | null): Promise<CodexSessionRow[]> {
   const cwd = folder ?? process.cwd();
@@ -409,9 +410,9 @@ export function codexThreadToBlocks(thread: JsonObject, rolloutTools: RolloutToo
   return blocks;
 }
 
-function userInput(value: unknown): { text: string; attachments: CodexImageAttachment[] } {
+function userInput(value: unknown): { text: string; attachments: CodexAttachment[] } {
   if (!Array.isArray(value)) return { text: '', attachments: [] };
-  const attachments: CodexImageAttachment[] = [];
+  const attachments: CodexAttachment[] = [];
   const text = value
     .map((input) => {
       const obj = objectValue(input);
@@ -425,12 +426,17 @@ function userInput(value: unknown): { text: string; attachments: CodexImageAttac
     })
     .filter(Boolean)
     .join('\n');
-  const restored = restoreHistoryImageAttachments(text);
-  for (const attachment of restored.attachments) addHistoryImageAttachment(attachments, attachment.path);
+  // The `Attached files:` suffix restore is already validated (images to
+  // transient thumbnails, other known documents to name-only cards); keep its
+  // results as-is rather than re-filtering to images, deduping by path.
+  const restored = restoreHistoryAttachments(text);
+  for (const attachment of restored.attachments) {
+    if (!attachments.some((existing) => existing.path === attachment.path)) attachments.push(attachment);
+  }
   return { text: restored.text, attachments };
 }
 
-function addHistoryImageAttachment(attachments: CodexImageAttachment[], candidate: string): void {
+function addHistoryImageAttachment(attachments: CodexAttachment[], candidate: string): void {
   const attachment = historyImageAttachment(candidate);
   if (!attachment) return;
   if (attachments.some((attachment) => attachment.path === candidate)) return;

@@ -42,3 +42,13 @@ export function rememberPreferredAgent(
     // Private browsing and hardened WebViews may reject localStorage.
   }
 }
+
+/** Describe the sidebar agent picker's effect. Kept separate from the React
+ * event handler so picker selection and chat creation cannot drift together
+ * without a focused regression test noticing. */
+export function newChatAgentSelectionPlan(agent: AgentKind): {
+  preferredAgent: AgentKind;
+  startAgent: AgentKind | null;
+} {
+  return { preferredAgent: agent, startAgent: null };
+}

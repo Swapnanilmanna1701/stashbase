@@ -40,7 +40,7 @@ import {
   clearAgentSessionFolderOverride,
   historyRowInFolder,
 } from '../agent-session-folders.ts';
-import { restoreHistoryImageAttachments, type RestoredImageAttachment } from '../agent-history-attachments.ts';
+import { restoreHistoryAttachments, type RestoredAttachment } from '../agent-history-attachments.ts';
 
 /** Trimmed session row sent to the client. */
 interface SessionRow {
@@ -257,7 +257,7 @@ export function sessionInfoMatchesFolder(info: { cwd?: unknown } | null | undefi
  *  AgentView's `Block` union (history tools are always settled: 'done' or
  *  'error'). */
 type WireBlock =
-  | { kind: 'user'; id: string; text: string; attachments?: RestoredImageAttachment[] }
+  | { kind: 'user'; id: string; text: string; attachments?: RestoredAttachment[] }
   | { kind: 'assistant'; id: string; text: string }
   | { kind: 'thinking'; id: string; text: string }
   | { kind: 'tool'; id: string; name: string; input: Record<string, unknown>; status: 'done' | 'error'; result?: string };
@@ -323,7 +323,7 @@ export function transcriptToBlocks(msgs: Array<{ type: string; message: unknown 
 }
 
 function appendUserBlock(blocks: WireBlock[], id: () => string, text: string): void {
-  const restored = restoreHistoryImageAttachments(text);
+  const restored = restoreHistoryAttachments(text);
   if (!restored.text.trim() && restored.attachments.length === 0) return;
   blocks.push({
     kind: 'user',

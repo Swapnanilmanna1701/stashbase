@@ -130,6 +130,28 @@ test('new foundation paths use Base UI and reduced-motion-aware Motion', () => {
   assert.match(globals, /animation-duration: 0\.01ms !important/);
 });
 
+test('Markdown Find controller registration is independent of changing action-bag identity', () => {
+  const markdown = read('web-src/src/components/CrepeDocument.tsx');
+  assert.match(markdown, /const registerFindController = actions\.registerFindController/);
+  assert.match(markdown, /\[registerFindController, active\]/);
+  assert.doesNotMatch(markdown, /registerFindController\(null\);\n  \}, \[actions, active\]\)/);
+});
+
+test('PDF load and Find registration are independent of changing action-bag identity', () => {
+  const pdf = read('web-src/src/components/PdfPreview.tsx');
+  assert.match(pdf, /\}, \[fileUrl\]\);/);
+  assert.match(pdf, /\[doc, numPages, registerFindController\]/);
+  assert.match(pdf, /function scrollToPage[\s\S]*updateTabPdfPage\(activeTab\.id, targetPage\)/);
+  assert.doesNotMatch(pdf, /\[fileUrl, actions\]/);
+});
+
+test('JSON Find registration is independent of changing action-bag identity', () => {
+  const json = read('web-src/src/components/JsonDocument.tsx');
+  assert.match(json, /const registerFindController = actions\.registerFindController/);
+  assert.match(json, /\[registerFindController, active\]/);
+  assert.doesNotMatch(json, /\[actions, active\]/);
+});
+
 test('shared interaction surfaces delegate behavior to the renderer UI layer', () => {
   for (const [file, primitive] of [
     ['web-src/src/components/ui/alert-dialog.tsx', 'alert-dialog'],
@@ -206,6 +228,46 @@ test('shared overlays own loading modality, popup positioning, and focus return'
   assert.match(popover, /<PopoverPrimitive\.Popup[\s\S]*\{\.\.\.props\}/);
 
   const tree = read('web-src/src/components/FileTree.tsx');
-  assert.match(tree, /tabIndex=\{-1\}/);
+  assert.match(tree, /tabIndex=\{treeFocus\.rovingPath === node\.path \? 0 : -1\}/);
+  assert.match(tree, /tabIndex=\{treeFocus\.rovingPath === path \? 0 : -1\}/);
   assert.match(tree, /currentTarget as HTMLElement\)\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(tree, /role="tree"/);
+  assert.match(tree, /aria-label="Files"/);
+  assert.match(tree, /role="treeitem"/);
+  assert.match(tree, /aria-selected=\{isActive\}/);
+
+  const tabs = read('web-src/src/components/TabStrip.tsx');
+  assert.match(tabs, /role="tablist"/);
+  assert.match(tabs, /aria-label="Open documents"/);
+  assert.match(tabs, /role="tab"/);
+  assert.match(tabs, /aria-selected=\{isActive\}/);
+  assert.match(tabs, /aria-label=\{`Close \$\{label\}`\}/);
+  assert.match(tabs, /aria-controls="document-panel"/);
+  assert.doesNotMatch(tabs, /aria-controls=\{`document-panel-\$\{t\.id\}`\}/);
+
+  const mainPane = read('web-src/src/components/MainPane.tsx');
+  assert.match(mainPane, /id=\{activeTab \? 'document-panel' : undefined\}/);
+
+  const sidebar = read('web-src/src/components/Sidebar.tsx');
+  assert.match(sidebar, /aria-label=\{`Select \$\{name\} folder root`\}/);
+  assert.match(sidebar, /aria-label=\{'New note in ' \+ target\}/);
+  assert.match(sidebar, /<Button\s+type="button"\s+variant="ghost"[\s\S]{0,400}aria-label=\{`Select \$\{name\} folder root`\}/);
+
+  const chat = read('web-src/src/components/ChatPane.tsx');
+  assert.match(chat, /role="tablist"/);
+  assert.match(chat, /aria-label="Chat sessions"/);
+  assert.match(chat, /aria-controls=\{chatPanelId\(tab\.id\)\}/);
+  assert.match(chat, /aria-labelledby=\{chatTabId\(tab\.id\)\}/);
+
+  const messages = read('web-src/src/components/agent/AgentMessages.tsx');
+  assert.match(messages, /role="log"/);
+  assert.match(messages, /aria-label="Agent conversation"/);
+
+  const markdown = read('web-src/src/components/CrepeDocument.tsx');
+  assert.match(markdown, /role="region"/);
+  assert.match(markdown, /aria-label=\{`\$\{documentBasename\(name\)\} Markdown document`\}/);
+
+  const json = read('web-src/src/components/JsonDocument.tsx');
+  assert.match(json, /role="region"/);
+  assert.match(json, /aria-label="JSON document"/);
 });

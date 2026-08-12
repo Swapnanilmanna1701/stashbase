@@ -76,7 +76,7 @@ For a portable build, download `StashBase-*-linux-*.AppImage`, make it executabl
 When you open StashBase for the first time:
 
 1. **Open a folder**: Click the folder icon to choose a local folder containing files you want to search
-2. **(Optional) Configure semantic search**: If you want AI-powered semantic search, add an OpenAI or OpenRouter API key in **Settings → Embedding**. An OpenAI restricted key needs access only to embeddings with `text-embedding-3-small`; model-list access is not required.
+2. **(Optional) Set up AI Index**: To search by meaning and give Agents better retrieval, add an OpenAI or OpenRouter API key in **Settings → AI Index**. An OpenAI restricted key needs access only to embeddings with `text-embedding-3-small`; model-list access is not required.
 3. **(Optional) Set up transcription**: To transcribe audio or video, download a speech model from **Settings → Transcription**. Small (465 MiB) is the default; Tiny (74 MiB) and Base (141 MiB) are lighter options. Transcription runs entirely on your machine, with no API cost, and you can cancel or rerun it while viewing the file
 4. **(Optional) Connect to Claude/Codex**: From **Settings → MCP**, connect external AI tools to access your searchable library
 5. **Start in Chat**: Opening a folder starts a fresh built-in Agent chat.
@@ -86,7 +86,7 @@ When you open StashBase for the first time:
 
 Your library is **opt-in**: only folders you open in StashBase are indexed. You can remove a folder at any time; StashBase clears its index but never deletes your files from disk.
 
-> Don't have an embedding API key? In-app keyword search works without one. Join our [Discord](https://discord.gg/zsRZH4PTq9) to ask about evaluation access.
+> Haven't set up AI Index? In-app exact text search still works. Join our [Discord](https://discord.gg/zsRZH4PTq9) to ask about evaluation access.
 
 ### Updating and Uninstalling
 
@@ -156,9 +156,9 @@ Some formats need preparation before their contents can be searched. StashBase k
 
 For PDF, DOCX, audio, and video, Agents read the derived text while the original remains the visible source file. Audio and video play directly when supported; otherwise, StashBase creates a compatible local audio preview. Large files dragged into the app stream to disk instead of being held entirely in memory. See [Architecture](design-docs/architecture.md) and [Preparation](design-docs/design/preparation.md) for the product and system contracts.
 
-### Index
+### AI Index
 
-StashBase builds semantic and keyword search over:
+StashBase builds its AI Index and exact text search over:
 
 - Markdown, HTML, and raw JSON text
 - PDF-derived Markdown
@@ -316,7 +316,7 @@ Reasonably stable:
 - Local folder library model
 - Markdown, HTML, JSON, PDF, and image preview
 - PDF extraction, image OCR, and local audio and video transcription, with persisted failures and retry
-- Semantic and keyword search
+- AI Index and exact text search
 - MCP server and client connectors
 - Bounded file helpers for sandboxed Agents
 - Built-in Claude Code / Codex panel

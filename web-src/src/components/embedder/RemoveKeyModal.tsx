@@ -31,7 +31,7 @@ export function RemoveKeyModal({
   return (
     <ModalShell
       title="Remove API key?"
-      description="Indexing and search stop until you add a key back. Your existing index is kept — nothing is deleted."
+      description="AI Index updates and meaning-based search stop until you add a key back. Your existing index is kept — nothing is deleted."
       onCancel={busy ? () => { /* wait for removal */ } : onCancel}
     >
       {error && (

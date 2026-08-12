@@ -1043,6 +1043,38 @@ test('Codex Session terminal errors settle only their matching active turn once'
   session.dispose();
 });
 
+test('Codex Session retains a terminal error received before its turn/start continuation', async (t) => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-codex-early-terminal-'));
+  runWithWindowId('early-terminal-window', () => setCurrentFolder(folder));
+  t.after(() => {
+    clearAgentRuntimeFailure('codex');
+    runWithWindowId('early-terminal-window', () => clearCurrentFolder());
+    fs.rmSync(folder, { recursive: true, force: true });
+  });
+
+  const ws = new FakeWebSocket();
+  const native = catalogProcess();
+  const session = new CodexSession(
+    ws as unknown as WebSocket,
+    'early-terminal-window',
+    undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+    () => native.proc as unknown as ChildProcessWithoutNullStreams,
+  );
+  session.begin();
+  await settle();
+
+  ws.emit('message', JSON.stringify({ t: 'prompt', text: 'hello' }));
+  native.proc.stdout.write(`${JSON.stringify({ method: 'error', params: {
+    threadId: 'thread-1', turnId: 'turn-1', willRetry: false, error: { message: 'early fatal crash' },
+  } })}\n`);
+  await settle();
+
+  const events = ws.sent.map((item) => JSON.parse(item) as { t: string; message?: string; isError?: boolean });
+  assert.deepEqual(events.filter((event) => event.t === 'error'), [{ t: 'error', message: 'early fatal crash' }]);
+  assert.deepEqual(events.filter((event) => event.t === 'turn-end'), [{ t: 'turn-end', isError: true }]);
+  session.dispose();
+});
+
 test('Codex Session user interruption stays non-error across terminal notification forms', async (t) => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-codex-cancel-'));
   runWithWindowId('cancel-window', () => setCurrentFolder(folder));

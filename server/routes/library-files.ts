@@ -1,7 +1,7 @@
 /**
  * Library-wide routes. External agents talk in absolute source paths because
  * they may run in sandboxes that cannot read the user's local filesystem.
- * These routes are the host-side bridge for semantic search, index status,
+ * These routes are the host-side bridge for semantic retrieval, index status,
  * orientation, library rules, and file CRUD.
  */
 import express from 'express';

@@ -166,6 +166,37 @@ export function exactPageForHighlight(highlight: { pdfPage?: number }, numPages:
   return null;
 }
 
+export function currentPdfPageForViewport({
+  scrollTop,
+  scrollHeight,
+  clientHeight,
+  markerY,
+  pages,
+}: {
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+  markerY: number;
+  pages: Array<{ page: number; top: number; bottom: number }>;
+}): number {
+  if (pages.length === 0) return 1;
+  // A short final page cannot always cross the reading marker before the
+  // scrollport reaches its limit. At the bottom, that final visible page is
+  // nevertheless the user's reading position and must win deterministically.
+  if (scrollTop + clientHeight >= scrollHeight - 1) return pages.at(-1)?.page ?? 1;
+  let bestPage = pages[0].page;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const page of pages) {
+    const topDistance = Math.abs(page.top - markerY);
+    const insideDistance = page.top <= markerY && page.bottom >= markerY ? 0 : topDistance;
+    if (insideDistance < bestDistance) {
+      bestDistance = insideDistance;
+      bestPage = page.page;
+    }
+  }
+  return bestPage;
+}
+
 /** y-ratio (0 = page top, 1 = bottom) of the text item covering the
  *  flat-string index `idx` — for scroll-to-match positioning. */
 export function yRatioForIndex(p: FlatPage, idx: number): number {

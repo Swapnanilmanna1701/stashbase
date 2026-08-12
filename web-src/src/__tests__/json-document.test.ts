@@ -148,6 +148,9 @@ test('JsonDocument registers editor and Find handlers only while its tab is acti
     };
 
     await render(true, true);
+    const jsonRegion = host.querySelector('.json-document');
+    assert.equal(jsonRegion?.getAttribute('role'), 'region');
+    assert.equal(jsonRegion?.getAttribute('aria-label'), 'JSON document');
     assert.ok(finds.at(-1), 'active read-only JSON registers Find');
     assert.equal(editors.at(-1), null, 'read-only JSON does not register a save editor');
     await render(false, true);
@@ -334,10 +337,16 @@ test('mounted JSON uses production dirty, debounce, conflict, in-flight, and clo
       cm!.dispatch({ changes: { from: cm!.state.doc.length, insert: '?' } });
       await Promise.resolve();
     });
+    const firstTabSourceBeforeSwitch = cm!.state.doc.toString();
     const callsBeforeSwitch = inFlightCalls;
     await act(async () => { await control.current!.actions.activateTab(secondTabId); });
     assert.equal(inFlightCalls, callsBeforeSwitch + 1, 'tab switching flushes the live JSON editor first');
     assert.equal(control.current!.state.current.activeTabId, secondTabId);
+    assert.equal(
+      control.current!.state.current.tabs.find((tab) => tab.id === firstTabId)?.file?.content,
+      firstTabSourceBeforeSwitch,
+      'a successful save retains the submitted source for later tab reactivation',
+    );
     await act(async () => { await control.current!.actions.activateTab(firstTabId); });
     cm = EditorView.findFromDOM(host.querySelector('.cm-editor') as unknown as HTMLElement);
 

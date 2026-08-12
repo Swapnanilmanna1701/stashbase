@@ -62,10 +62,17 @@ export function MainPane({ workspaceHidden = false }: { workspaceHidden?: boolea
     })();
   }
   // Reserve room for the absolute-positioned chrome (edit toggle / PDF
-  // controls / floating-actions at top:44px, height ~28px) so editor /
+  // controls / floating-actions at top:44px, height 24px) so editor /
   // preview content doesn't render underneath it. HTML / image viewers
   // have no top chrome, so they skip the band and fill from just under
   // the tab strip.
+  //
+  // 32px is the floor, not a taste call. The chrome sits at a fixed
+  // top:44px while the tab strip above it grows with the interface-size
+  // preference (35.7 / 37.6 / 40.4px) — 44 is already as high as the
+  // chrome can start without the largest strip covering it, so the band
+  // has to span 44 - 35.7 + 24. Every control that lives in it is
+  // therefore 24px; put a 28px one back and it hangs into the document.
   const chromeBand = hasTabs && cur?.format !== 'html' && cur?.format !== 'image';
 
   return (
@@ -97,7 +104,12 @@ export function MainPane({ workspaceHidden = false }: { workspaceHidden?: boolea
         * children a definite size unambiguously, sidestepping that bug.
         * The `main-body` class itself is the structural hook for
         * `.main.no-file > :not(.main-body)` in mainpane.css. */}
-      <div className={'main-body grid min-h-0 min-w-0 flex-1 grid-cols-[1fr] grid-rows-[1fr] overflow-hidden' + (chromeBand ? ' pt-9' : '')}>
+      <div
+        className={'main-body grid min-h-0 min-w-0 flex-1 grid-cols-[1fr] grid-rows-[1fr] overflow-hidden' + (chromeBand ? ' pt-8' : '')}
+        role={activeTab ? 'tabpanel' : undefined}
+        id={activeTab ? 'document-panel' : undefined}
+        aria-labelledby={activeTab ? `document-tab-${activeTab.id}` : undefined}
+      >
         {!hasTabs && !state.folderPath && (
           /* No folder open at all (empty library, or an open failure).
            * The sidebar's zero-folder block owns the add-folder action;
@@ -203,7 +215,7 @@ export function MainPane({ workspaceHidden = false }: { workspaceHidden?: boolea
         // Centered placeholder strip for an empty (Untitled) tab —
         // absolute + 50% transform centers it relative to .main, in the
         // same slot a breadcrumb path would occupy.
-        <div className="absolute top-11 left-1/2 z-4 flex h-7 max-w-[calc(100%-220px)] -translate-x-1/2 items-center overflow-hidden text-base whitespace-nowrap text-muted-foreground">
+        <div className="absolute top-11 left-1/2 z-4 flex h-6 max-w-[calc(100%-220px)] -translate-x-1/2 items-center overflow-hidden text-base whitespace-nowrap text-muted-foreground">
           <span className="px-1 py-0.5">Untitled</span>
         </div>
       )}
@@ -224,8 +236,8 @@ export function MainPane({ workspaceHidden = false }: { workspaceHidden?: boolea
           )}
           <Button
             variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground [&_svg:not([class*='size-'])]:size-3.5"
+            size="icon-xs"
+            className="text-muted-foreground"
             title={editMode ? 'Switch to Reading View' : 'Switch to Live Editing'}
             aria-label={editMode ? 'Switch to Reading View' : 'Switch to Live Editing'}
             onClick={() => { void actions.toggleEditMode(); }}

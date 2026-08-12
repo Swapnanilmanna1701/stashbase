@@ -24,6 +24,10 @@ Agent without a conversion layer becoming the product.
   outside the visual document body. GitHub alert markers render as accessible
   styled blockquotes while retaining their standard Markdown source.
 - Inline and block LaTex math are available through Crepe's KaTeX feature.
+- Agent-written source fails closed before touching disk when its payload
+  contains non-text control characters. Generation guidance must preserve
+  Markdown and LaTeX backslashes literally rather than relying on an
+  interpreted string representation.
 - Contextual authoring controls retain distinct inactive, hover, and active
   states in both light and dark themes.
 - Find, anchors, search-result highlighting, local-link navigation, and image

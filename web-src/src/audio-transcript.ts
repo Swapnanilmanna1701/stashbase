@@ -53,7 +53,7 @@ export function audioTranscriptStatusCopy(state: AudioTranscriptState | null): s
   return 'Transcribing locally…';
 }
 
-/** Resolve a semantic-search chunk back to a timestamped transcript segment.
+/** Resolve a semantic-retrieval chunk back to a timestamped transcript segment.
  * Derived Markdown timestamps are authoritative; normalized text matching is
  * the fallback for chunks that begin/end in the middle of a transcript line. */
 export function findAudioSeekSegment(

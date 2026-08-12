@@ -444,7 +444,7 @@ function AppBody() {
       </Suspense>
       <AlertConfirmModal />
       <Toasts />
-      {state.folderPath ? <EmbedderRequireKeyGate /> : null}
+      <EmbedderRequireKeyGate />
       <SettingsPortal />
     </>
   );

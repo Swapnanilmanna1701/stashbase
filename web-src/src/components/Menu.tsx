@@ -14,6 +14,9 @@ export type MenuItem =
       danger?: boolean;
       disabled?: boolean;
       title?: string;
+      /** Keep focus at the destination mounted by this action instead of
+       * returning it to the menu invoker. */
+      returnFocus?: boolean;
       onSelect: () => void;
     };
 

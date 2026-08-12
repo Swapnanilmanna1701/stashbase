@@ -160,6 +160,8 @@ test('mounted AgentView ready → raw close renders recovery and reconnects with
   await act(async () => { first.close(); });
 
   let output = renderedText(renderer!);
+  assert.match(output, /"role":"log"/);
+  assert.match(output, /"aria-label":"Agent conversation"/);
   assert.match(output, /Partial answer survives/);
   assert.match(output, /Codex disconnected unexpectedly/);
   assert.match(output, /Reconnect/);

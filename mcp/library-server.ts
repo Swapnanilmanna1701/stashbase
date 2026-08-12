@@ -66,8 +66,9 @@ export function createLibraryMcpServer(opts: LibraryMcpServerOptions): Server {
         '(e.g. `/Users/me/notes/topic/note.md`); `search_library` returns paths in the same ' +
         'form. When a returned path is a PDF, call `read_file` on that PDF path; StashBase ' +
         'returns extracted Markdown when conversion has completed. `write_file`, `edit_file`, `move_file`, and `delete_file` update the ' +
-        'semantic index when an API key is configured. Call `reindex` after bulk ' +
-        'external changes or whenever a tool returns an index warning.\n\n' +
+        'AI Index when an API key is configured. Call `reindex` after bulk ' +
+        'external changes or whenever a tool returns an index warning. When constructing Markdown or LaTeX ' +
+        'inside JavaScript, use `String.raw` or escape every backslash, then use `read_file` to verify generated math.\n\n' +
         'When you CREATE a new generated note (e.g. a summary or report), add ' +
         '`generated_by: stashbase-agent` to its Markdown YAML front-matter (or an HTML ' +
         '`<meta name="generated_by" content="stashbase-agent">`) so the user can later ' +
@@ -269,12 +270,12 @@ const BUILTIN_TOOLS = [
       name: 'write_file',
       description:
         'Create or overwrite a Markdown/HTML text file. Creates parent folders as ' +
-        'needed, writes atomically, and updates the semantic index when an API key is configured.',
+        'needed, writes atomically, and updates AI Index when an API key is configured.',
       inputSchema: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Absolute file path under one of your folders.' },
-          content: { type: 'string', description: 'Full file content to write.' },
+          content: { type: 'string', description: 'Full literal file content. In JavaScript wrappers, use String.raw or escape every Markdown/LaTeX backslash.' },
           baseVersion: { type: 'string', description: 'Optional version from read_file for optimistic conflict checks.' },
         },
         required: ['path', 'content'],
@@ -290,7 +291,7 @@ const BUILTIN_TOOLS = [
         properties: {
           path: { type: 'string', description: 'Absolute file path under one of your folders.' },
           old_text: { type: 'string', description: 'Exact text to replace.' },
-          new_text: { type: 'string', description: 'Replacement text.' },
+          new_text: { type: 'string', description: 'Literal replacement text. In JavaScript wrappers, use String.raw or escape every Markdown/LaTeX backslash.' },
           replace_all: { type: 'boolean', description: 'Replace every occurrence instead of requiring a single match.' },
           baseVersion: { type: 'string', description: 'Optional version from read_file for optimistic conflict checks.' },
         },
@@ -302,7 +303,7 @@ const BUILTIN_TOOLS = [
       description:
         'Rename or move a file within the same folder. Keeps note attachment bundles together, ' +
         'regenerates PDF/image searchable text when needed, optionally cascades Markdown/HTML links, ' +
-        'and updates the semantic index when possible.',
+        'and updates AI Index when possible.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -317,7 +318,7 @@ const BUILTIN_TOOLS = [
       name: 'delete_file',
       description:
         'Delete a visible file by absolute path. Also removes note bundles or ' +
-        'PDF/image derived artifacts owned by that file, and cleans the semantic index asynchronously.',
+        'PDF/image derived artifacts owned by that file, and cleans AI Index asynchronously.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -407,7 +408,7 @@ const BUILTIN_TOOLS = [
     {
       name: 'reindex',
       description:
-        'Reconcile the semantic index with the files currently on disk, then report ' +
+        'Reconcile AI Index with the files currently on disk, then report ' +
         'index health. StashBase file tools update the index themselves when possible; ' +
         'call this after bulk external changes or when a file tool returns an index warning. ' +
         'You do NOT need to ' +

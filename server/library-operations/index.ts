@@ -129,7 +129,7 @@ export function createLibraryOperations(
       });
       if (result.availability.state === 'unavailable') {
         throw routeError(
-          'semantic search is disabled until you add an embedding API key',
+          'AI Index is disabled until you set it up in StashBase Settings',
           412,
           'EMBEDDER_KEY_REQUIRED',
         );

@@ -290,7 +290,7 @@ export function mount(app: express.Express): void {
       });
       if (result.availability.state === 'unavailable') {
         return res.status(412).json({
-          error: 'semantic search is disabled until you add an embedding API key',
+          error: 'AI Index is disabled until you set it up in StashBase Settings',
           code: 'EMBEDDER_KEY_REQUIRED',
         });
       }
@@ -307,7 +307,7 @@ export function mount(app: express.Express): void {
   // Keyword (substring / regex) search via ripgrep, scoped to the
   // active folder directory. Bypasses the daemon and the index — useful
   // for finding specific tokens (function names, exact phrases) that
-  // semantic search blurs out. Defaults to smart-case, restricts to
+  // meaning-based retrieval blurs out. Defaults to smart-case, restricts to
   // markdown / HTML (the only formats we index anyway), caps per-file
   // and total match counts so a generic query can't OOM the renderer.
   app.get('/api/keyword-search', async (req, res) => {

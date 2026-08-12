@@ -24,6 +24,7 @@ const expectedEntries = [
   'src/components/DocumentOutline.tsx',
   'src/components/SemanticIndexingNotice.tsx',
   'src/components/UnsupportedFilesCallout.tsx',
+  'src/components/EmbeddingSetupCallout.tsx',
   'src/components/embedder/RequireApiKeyModal.tsx',
   'src/components/ReportBugSurface.tsx',
 ];

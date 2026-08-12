@@ -27,6 +27,10 @@ import { activeHeadingId, extractDocumentHeadings, headingSlug, type DocumentHea
 import { documentScroller, headingElementAtPosition, scrollOutlineToHeading, type HeadingNodeView } from '../milkdown/outlineNavigation';
 import { useDocumentOutline } from './DocumentOutlineContext';
 
+function documentBasename(path: string): string {
+  return path.split('/').pop() ?? path;
+}
+
 /**
  * The single Markdown surface. CrepeBuilder provides Milkdown's maintained
  * authoring features, while StashBase keeps ownership of persistence, local
@@ -43,6 +47,7 @@ export function CrepeDocument({ tabId, name, content, readOnly, active, folder }
   folder?: string;
 }) {
   const { actions, activeTab } = useApp();
+  const registerFindController = actions.registerFindController;
   const { publishOutline, clearOutline } = useDocumentOutline();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<CrepeBuilder | null>(null);
@@ -51,7 +56,11 @@ export function CrepeDocument({ tabId, name, content, readOnly, active, folder }
   const contentRef = useRef(content);
   const readOnlyRef = useRef(readOnly);
   const activeRef = useRef(active);
-  const observedIncomingRef = useRef<string | null>(null);
+  // The builder already consumes the initial prop as `defaultValue`. Mark it
+  // observed up front so the post-create content effect cannot mistake that
+  // same initial source for an external refresh and erase typing that began
+  // as soon as the editor became visible.
+  const observedIncomingRef = useRef(content);
   const suppressChangeRef = useRef(false);
   const refreshHeadingsRef = useRef<() => void>(() => {});
   const frontmatterRef = useRef(splitLeadingYamlFrontmatter(content).source);
@@ -133,6 +142,7 @@ export function CrepeDocument({ tabId, name, content, readOnly, active, folder }
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
+    if (activeTab?.dirty) return;
     editor.setReadonly(readOnly);
     if (!readOnly && active) {
       actions.registerEditor({
@@ -161,7 +171,7 @@ export function CrepeDocument({ tabId, name, content, readOnly, active, folder }
       // inside the transaction. The headings effect handles DOM IDs later.
       refreshHeadingsRef.current();
     });
-  }, [content]);
+  }, [activeTab?.dirty, content]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -221,9 +231,9 @@ export function CrepeDocument({ tabId, name, content, readOnly, active, folder }
       // an off-screen current match into view.
       () => hostRef.current?.querySelector<HTMLElement>('.milkdown') ?? null,
     );
-    actions.registerFindController(controller);
-    return () => actions.registerFindController(null);
-  }, [actions, active]);
+    registerFindController(controller);
+    return () => registerFindController(null);
+  }, [registerFindController, active]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -284,7 +294,16 @@ export function CrepeDocument({ tabId, name, content, readOnly, active, folder }
     if (applyChunkHighlight(host.ownerDocument, pendingHighlight.chunkText, host)) actions.consumePendingHighlight();
   }, [actions, content, pendingHighlight]);
 
-  return <div ref={hostRef} className={'crepe-shell' + (readOnly ? ' crepe-readonly' : '')} data-tab-id={tabId} hidden={!active} />;
+  return (
+    <div
+      ref={hostRef}
+      className={'crepe-shell' + (readOnly ? ' crepe-readonly' : '')}
+      data-tab-id={tabId}
+      role="region"
+      aria-label={`${documentBasename(name)} Markdown document`}
+      hidden={!active}
+    />
+  );
 }
 
 async function uploadLocalImage(file: File, noteName: string): Promise<string> {
