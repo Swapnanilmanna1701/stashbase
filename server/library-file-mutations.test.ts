@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { initSync, Workbook } from '@dukelib/sheets-wasm';
+import { filesystemPath } from './filesystem-path.ts';
 
 const moduleRequire = createRequire(import.meta.url);
 const sheetsModulePath = moduleRequire.resolve('@dukelib/sheets-wasm');
@@ -191,19 +192,19 @@ $$`;
   assert.ok(prepared);
   await prepared;
   const workbookRead = await callTool(base, token, 'read_file', { path: workbookSource });
-  assert.equal(workbookRead.path, workbookSource);
+  assert.equal(filesystemPath.equal(workbookRead.path, workbookSource), true);
   assert.equal(workbookRead.sourceFormat, 'xlsx');
   assert.equal(workbookRead.format, 'xlsx-derived-md');
   assert.equal(workbookRead.derived, true);
-  assert.notEqual(workbookRead.readPath, workbookSource);
+  assert.equal(filesystemPath.equal(workbookRead.readPath, workbookSource), false);
   assert.match(workbookRead.content, /A1: MCP workbook evidence/);
   const { agentContextFile } = await import('./library-file-reader.ts');
   const agentWorkbook = await agentContextFile(workbookSource);
-  assert.equal(agentWorkbook.path, workbookSource);
+  assert.equal(filesystemPath.equal(agentWorkbook.path, workbookSource), true);
   assert.equal(agentWorkbook.sourceFormat, 'xlsx');
   assert.equal(agentWorkbook.kind, 'derived');
   assert.equal(agentWorkbook.available, true);
-  assert.notEqual(agentWorkbook.readPath, workbookSource);
+  assert.equal(filesystemPath.equal(agentWorkbook.readPath, workbookSource), false);
   const jsonEdited = await callTool(base, token, 'edit_file', {
     path: jsonSource,
     old_text: '"z": 1',

@@ -13,6 +13,7 @@ import {
   MALFORMED_DOCX,
   MALFORMED_PDF,
   seedJourneyWorkspaces,
+  seedXlsxJourneyWorkspace,
 } from '../fixtures/journey-workspaces.ts';
 import { primaryKey } from './journey-helpers.ts';
 
@@ -167,6 +168,7 @@ test('valid DOCX renders its document and legacy derived notes never surface as 
 test('valid XLSX opens as a source-identified read-only multi-sheet workbook', async ({}, testInfo) => {
   const fixture = await createAppFixture({ membership: 'one-folder' });
   seedJourneyWorkspaces(fixture);
+  seedXlsxJourneyWorkspace(fixture);
   let app: LaunchedApp | undefined;
   try {
     app = await launchApp(fixture, testInfo);
@@ -250,6 +252,7 @@ test('valid XLSX opens as a source-identified read-only multi-sheet workbook', a
 test('XLSX direct preview remains available when searchable preparation fails', async ({}, testInfo) => {
   const fixture = await createAppFixture({ membership: 'one-folder' });
   seedJourneyWorkspaces(fixture);
+  seedXlsxJourneyWorkspace(fixture);
   let app: LaunchedApp | undefined;
   try {
     app = await launchApp(fixture, testInfo);

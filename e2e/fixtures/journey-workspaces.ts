@@ -147,8 +147,6 @@ export function seedJourneyWorkspaces(fixture: AppFixture): void {
   write(path.join(projectA, MALFORMED_DOCX), 'not a zip-backed office document');
   write(path.join(projectA, JOURNEY_PDF), twoPagePdf());
   write(path.join(projectA, JOURNEY_DOCX), VALID_DOCX);
-  write(path.join(projectA, JOURNEY_XLSX), validXlsx());
-  write(path.join(projectA, '~$quarterly-workbook.xlsx'), 'temporary Office lock file');
   write(path.join(projectA, LEGACY_DERIVED_NOTE), '# Hidden derived regression phrase\n');
   write(path.join(projectB, 'beta-pixel.png'), ONE_PIXEL_PNG);
   write(path.join(projectA, JOURNEY_MARKDOWN), [
@@ -204,4 +202,10 @@ export function seedJourneyWorkspaces(fixture: AppFixture): void {
     '![Beta fixture pixel](./beta-pixel.png)',
     '',
   ].join('\n'));
+}
+
+export function seedXlsxJourneyWorkspace(fixture: AppFixture): void {
+  const { projectA } = fixture.workspaces;
+  write(path.join(projectA, JOURNEY_XLSX), validXlsx());
+  write(path.join(projectA, '~$quarterly-workbook.xlsx'), 'temporary Office lock file');
 }
