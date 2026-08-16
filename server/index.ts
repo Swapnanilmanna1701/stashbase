@@ -196,7 +196,9 @@ const CSP_PROD =
   // via <script src="blob:…"> ('self' does NOT match blob: for script-src).
   // The iframe sandbox is the primary security boundary; CSP here is
   // belt-and-suspenders for the main renderer.
-  "script-src 'self' 'unsafe-inline' blob:; " +
+  // `wasm-unsafe-eval` permits local WebAssembly compilation for the XLSX
+  // viewer without granting JavaScript string evaluation.
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:; " +
   "style-src 'self' 'unsafe-inline'; " +
   "img-src 'self' data: blob:; " +
   "font-src 'self' data:; " +

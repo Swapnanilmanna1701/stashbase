@@ -45,6 +45,16 @@ forwarding, and script confinement.
 - DOCX fetches source bytes, parses in a renderer Worker, sanitizes output, and
   falls back to durable prepared HTML after a `20 s` direct-preview deadline.
   Server preparation has its own `60 s` worker deadline.
+- XLSX fetches the original source only after server ZIP preflight, then parses
+  in the viewer library's Worker/WASM boundary. It is always `readOnly`, hides
+  export/edit controls, keeps internal worksheet links local, makes every
+  external cell/image/shape hyperlink inert, and disables the library's
+  automatic formula recalculation through the pinned pnpm patch. The renderer
+  build guard rejects an unpatched install for either invariant. Fetch/parser state retires when the
+  source version or tab changes. Its WASM and renderer code are packaged local
+  assets and lazy dynamic entries; no CDN is permitted. The
+  production CSP grants only `wasm-unsafe-eval` for compilation, not general
+  JavaScript `unsafe-eval`.
 - Image viewing uses the shared lightbox and never turns the preview into an
   editable managed asset.
 - Audio and supported video use a compatible playback preview when necessary,
@@ -69,11 +79,17 @@ forwarding, and script confinement.
 | Role | Stable entry points |
 |---|---|
 | Viewer dispatch | `web-src/src/components/MainPane.tsx` |
-| Primary viewers | `PdfPreview.tsx`, `DocxPreview.tsx`, `HtmlPreview.tsx`, `ImagePreview.tsx`, `ImageLightbox.tsx`, `AudioPreview.tsx`, `JsonDocument.tsx`, and the lazy `json/JsonTreeView.tsx` controller |
+| Primary viewers | `PdfPreview.tsx`, `DocxPreview.tsx`, `XlsxPreview.tsx`, `HtmlPreview.tsx`, `ImagePreview.tsx`, `ImageLightbox.tsx`, `AudioPreview.tsx`, `JsonDocument.tsx`, and the lazy `json/JsonTreeView.tsx` controller |
 | Preview-control Modules | `web-src/src/components/audio/`, `web-src/src/components/findIframe.ts`, `previewChunkHighlight.ts`, `pdfText.ts`, `pdfFindController.ts`, `web-src/src/lib/previewIframe.ts`, and `previewMessages.ts` |
 | Worker/Sanitizer Seam | `web-src/src/workers/docxPreview.worker.ts`, `shared/html-sanitization.ts` |
 | Server asset/preparation Adapters | `/asset` and `/derived-asset` routes, `server/docx.ts`, media preparation Modules |
 | Focused evidence | `web-src/src/__tests__/pdf-text.test.ts`, `audio-playback.test.ts`, `audio-transcript.test.ts`, `json-document.test.ts`, `json-source-model.test.ts`, plus `e2e/journeys/formats-media.spec.ts` and `markdown-json.spec.ts` |
+
+The XLSX journey in `e2e/journeys/formats-media.spec.ts` exercises merged and
+frozen cells, rendered images and charts, cached formula display through copied
+range content, selection/copy, inert external links, internal worksheet
+navigation, preview independence, and search reopen.
+`scripts/check-renderer-chunks.mjs` is the dependency-patch regression gate.
 
 ## Validation
 

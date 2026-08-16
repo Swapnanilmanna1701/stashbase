@@ -385,7 +385,7 @@ const BUILTIN_TOOLS = [
             type: 'array',
             description:
               'Optional source file categories. Omit for all types; combine categories to ' +
-              'search notes, PDFs, images, DOCX files, or audio/video transcripts.',
+              'search notes, PDFs, images, DOCX files, spreadsheets, or audio/video transcripts.',
             items: { type: 'string', enum: [...SEARCH_TYPE_CATEGORIES] },
             uniqueItems: true,
           },

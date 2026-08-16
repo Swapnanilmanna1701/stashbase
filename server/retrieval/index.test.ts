@@ -122,13 +122,36 @@ test('Retrieval maps source categories to semantic index extension filters', asy
     },
   });
 
-  await retrieval.search({
+  const result = await retrieval.search({
     mode: 'semantic',
     query: 'evidence',
-    types: ['pdf', 'docx'],
+    types: ['pdf', 'docx', 'spreadsheets'],
   });
 
-  assert.deepEqual(extensions, ['.pdf', '.docx']);
+  assert.deepEqual(extensions, ['.pdf', '.docx', '.xlsx']);
+  assert.deepEqual(result.evidence, []);
+});
+
+test('Retrieval preserves XLSX source identity for keyword and semantic evidence', async () => {
+  const folderRoot = filesystemPath.absolute('/library');
+  const sourcePath = filesystemPath.join(folderRoot, 'quarterly.xlsx');
+  const keyword = createRetrieval({
+    keywordSearch: async () => ({
+      files: [{ path: 'quarterly.xlsx', totalMatches: 1, matches: [{ line: 7, text: 'B2: Projected revenue', ranges: [[4, 13]] }] }],
+      truncated: false,
+    }),
+  });
+  const keywordResult = await keyword.search({ mode: 'keyword', query: 'Projected', folderRoot, types: ['spreadsheets'] });
+  assert.equal(keywordResult.evidence[0]?.sourcePath, sourcePath);
+  assert.deepEqual(keywordResult.evidence[0]?.locator, { line: 7 });
+
+  const semantic = createRetrieval({
+    hasEmbeddingKey: () => true,
+    vectorSearch: async () => [{ fileName: sourcePath, chunkIndex: 0, content: 'Projected revenue', heading: 'Forecast', startLine: 7, score: 0.95 }],
+  });
+  const semanticResult = await semantic.search({ mode: 'semantic', query: 'Projected', folderRoot, types: ['spreadsheets'] });
+  assert.equal(semanticResult.evidence[0]?.sourcePath, sourcePath);
+  assert.equal(semanticResult.evidence[0]?.heading, 'Forecast');
 });
 
 test('Retrieval remaps scoped semantic legacy-derived hits to their visible source', async () => {

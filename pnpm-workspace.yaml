@@ -4,3 +4,5 @@ allowBuilds:
   electron-winstaller: true
   esbuild: true
   node-pty: true
+patchedDependencies:
+  '@extend-ai/react-xlsx@0.16.1': patches/@extend-ai__react-xlsx@0.16.1.patch

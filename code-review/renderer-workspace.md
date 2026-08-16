@@ -32,6 +32,9 @@ semantic readiness.
 - Polling, timers, controllers, and native subscriptions retire when their
   generation or window context ends. Late results cannot repopulate reset
   state.
+- Binary workbook refresh is keyed by the server source version. XLSX fetches,
+  workers, and WASM-backed controller state retire with that generation and
+  cannot overwrite a replacement workbook or a switched folder.
 - The blank-chat lifecycle follows [Agent Panel](agent-panel.md); the workspace
   may reveal or dock it but does not redefine Agent session scope.
 

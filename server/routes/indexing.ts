@@ -197,7 +197,7 @@ function prepareConvertibleInFolder(relPath: string, folderName?: string): void 
   const { folderRoot } = requireRequestFolder(folderName?.trim() || undefined);
   const abs = requireExistingFileInFolder(folderRoot, rel);
   if (!prepareConvertibleSource(abs, rel)) {
-    const err = new Error('only DOCX and media files require interactive preparation');
+    const err = new Error('only DOCX, XLSX, and media files require interactive preparation');
     (err as any).status = 415;
     throw err;
   }

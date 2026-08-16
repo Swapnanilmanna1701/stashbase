@@ -153,7 +153,7 @@ export function forgetClosedTabs(history: string[], openIds: Set<string>): strin
  *  temporarily undercounting the backfill. */
 export function optimisticKeyBackfillPaths(files: FileMeta[]): string[] {
   return files
-    .filter((f) => f.format === 'md' || f.format === 'html' || f.format === 'json' || f.format === 'pdf' || f.format === 'image' || f.format === 'docx')
+    .filter((f) => f.format === 'md' || f.format === 'html' || f.format === 'json' || f.format === 'pdf' || f.format === 'image' || f.format === 'docx' || f.format === 'xlsx')
     .map((f) => f.name)
     .filter((name) => !name.split('/').some((seg) => seg.startsWith('.')))
     .sort();

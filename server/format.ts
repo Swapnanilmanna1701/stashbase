@@ -35,6 +35,8 @@ import {
   MARKDOWN_NOTE_EXTENSIONS,
   PDF_EXTENSIONS,
   PDF_EXTENSION_ALTERNATION,
+  SPREADSHEET_EXTENSIONS,
+  SPREADSHEET_EXTENSION_ALTERNATION,
   STRUCTURED_DATA_EXTENSIONS,
 } from '../shared/file-formats.ts';
 import { SEARCH_TYPE_CATEGORIES, type SearchTypeCategory } from '../shared/search-types.ts';
@@ -46,7 +48,7 @@ export type FileFormat = 'md' | 'html' | 'json';
  *  note formats plus the convertible binaries (pdf, image) that are
  *  viewable but searched via AppData-derived text. Kept
  *  distinct from `FileFormat` so convertible sources cannot enter the direct-text path. */
-export type ViewerFormat = FileFormat | 'pdf' | 'image' | 'docx' | 'audio';
+export type ViewerFormat = FileFormat | 'pdf' | 'image' | 'docx' | 'xlsx' | 'audio';
 
 /** Recognised note extensions and how the rest of the pipeline should
  *  treat them. Adding a format = one line here + a chunker + a viewer —
@@ -121,6 +123,7 @@ export function matchNoteStem(rel: string): { dir: string; stem: string } | null
 const PDF_PATTERN = new RegExp(`\\.(${PDF_EXTENSION_ALTERNATION})$`, 'i');
 const IMAGE_PATTERN = new RegExp(`\\.(${IMAGE_SOURCE_EXTENSION_ALTERNATION})$`, 'i');
 const DOCX_PATTERN = new RegExp(`\\.(${DOCX_EXTENSION_ALTERNATION})$`, 'i');
+const XLSX_PATTERN = new RegExp(`\\.(${SPREADSHEET_EXTENSION_ALTERNATION})$`, 'i');
 const AUDIO_PATTERN = new RegExp(`\\.(${AUDIO_SOURCE_EXTENSION_ALTERNATION})$`, 'i');
 const CONVERTIBLE_SOURCE_PATTERN = new RegExp(`\\.(${CONVERTIBLE_SOURCE_EXTENSION_ALTERNATION})$`, 'i');
 
@@ -139,7 +142,17 @@ export function isImageFile(name: string): boolean {
 
 export function isDocxFile(name: string): boolean {
   const base = pathBasename(name);
-  return DOCX_PATTERN.test(base) && !base.startsWith('~$') && !base.startsWith('.~');
+  return DOCX_PATTERN.test(base) && !isOfficeTemporaryFile(base);
+}
+
+export function isXlsxFile(name: string): boolean {
+  const base = pathBasename(name);
+  return XLSX_PATTERN.test(base) && !isOfficeTemporaryFile(base);
+}
+
+export function isOfficeTemporaryFile(name: string): boolean {
+  const base = pathBasename(name);
+  return (base.startsWith('~$') || base.startsWith('.~')) && (DOCX_PATTERN.test(base) || XLSX_PATTERN.test(base));
 }
 
 /** Audio and video-container sources accepted by the local transcription
@@ -158,7 +171,9 @@ export function isConvertibleSource(name: string): boolean {
   const base = pathBasename(name);
   if (!CONVERTIBLE_SOURCE_PATTERN.test(base)) return false;
   // Office lock files share the `.docx` suffix but are never user documents.
-  return !DOCX_PATTERN.test(base) || isDocxFile(base);
+  if (DOCX_PATTERN.test(base)) return isDocxFile(base);
+  if (XLSX_PATTERN.test(base)) return isXlsxFile(base);
+  return true;
 }
 
 const SEARCH_TYPE_EXTENSIONS: Record<SearchTypeCategory, readonly string[]> = {
@@ -167,6 +182,7 @@ const SEARCH_TYPE_EXTENSIONS: Record<SearchTypeCategory, readonly string[]> = {
   pdf: PDF_EXTENSIONS,
   image: IMAGE_SOURCE_EXTENSIONS,
   docx: DOCX_EXTENSIONS,
+  spreadsheets: SPREADSHEET_EXTENSIONS,
   audio: AUDIO_SOURCE_EXTENSIONS,
 };
 
@@ -211,6 +227,7 @@ export function detectViewerFormat(name: string): ViewerFormat | null {
   const note = detectFormat(name);
   if (note) return note;
   if (isDocxFile(name)) return 'docx';
+  if (isXlsxFile(name)) return 'xlsx';
   for (const { pattern, format } of VIEWER_ONLY_FORMATS) {
     if (pattern.test(name)) return format;
   }

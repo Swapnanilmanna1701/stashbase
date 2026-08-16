@@ -349,7 +349,7 @@ function FileRow({
   siblings,
 }: {
   path: string;
-  format: 'md' | 'html' | 'json' | 'pdf' | 'image' | 'docx' | 'audio';
+  format: 'md' | 'html' | 'json' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'audio';
   depth: number;
   paddingLeft: number;
   parent: string;
@@ -585,7 +585,7 @@ function NewFolderInput({ parentPath, depth }: { parentPath: string; depth: numb
  *  blue) and it made the sidebar the loudest surface in the app — a hue per
  *  row is exactly the repeated-element case the colour budget rules out.
  *  The silhouette and its letterform carry the format instead. */
-export type FileGlyphFormat = 'md' | 'html' | 'json' | 'pdf' | 'image' | 'docx' | 'audio';
+export type FileGlyphFormat = 'md' | 'html' | 'json' | 'pdf' | 'image' | 'docx' | 'xlsx' | 'audio';
 
 export function FileTypeIcon({ format }: { format: FileGlyphFormat }) {
   if (format === 'image') {

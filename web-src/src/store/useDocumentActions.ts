@@ -44,6 +44,11 @@ function isDocxName(name: string): boolean {
   return /\.docx$/i.test(base) && !base.startsWith('~$') && !base.startsWith('.~');
 }
 
+function isXlsxName(name: string): boolean {
+  const base = basename(name);
+  return /\.xlsx$/i.test(base) && !base.startsWith('~$') && !base.startsWith('.~');
+}
+
 function isAudioName(name: string): boolean {
   return AUDIO_SOURCE_RE.test(name);
 }
@@ -230,6 +235,18 @@ export function useDocumentActions(
         .catch((err: unknown) => {
           console.warn('[docx] interactive preparation request failed:', err);
         });
+    } else if (isXlsxName(name)) {
+      try {
+        const stat = await api.statFile(name, readOpts);
+        body = { name, format: 'xlsx' as const, content: '', version: stat.version };
+      } catch (err: unknown) {
+        dispatch({ type: 'SAVE_STATUS', status: { text: err instanceof Error ? err.message : String(err), cls: 'error' } });
+        return;
+      }
+      const folder = opts.libraryFolder ?? opts.expectedFolder ?? state.current.folderPath;
+      void api.prepareXlsx(name, { folder: folder || undefined })
+        .then(() => refreshIndexState(folder || undefined))
+        .catch((err: unknown) => console.warn('[xlsx] interactive preparation request failed:', err));
     } else if (isAudioName(name)) {
       try {
         const stat = await api.statFile(name, readOpts);

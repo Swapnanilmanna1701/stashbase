@@ -3,7 +3,7 @@ import path from 'node:path';
 import { LEGACY_DERIVED_SOURCE_EXTENSION_ALTERNATION } from '../shared/file-formats.ts';
 import { decodeEntities } from './html.ts';
 import { onSwitch } from './folder.ts';
-import { detectFormat, detectViewerFormat, isDerivedNoteName, type FileFormat, type ViewerFormat } from './format.ts';
+import { detectFormat, detectViewerFormat, isDerivedNoteName, isOfficeTemporaryFile, type FileFormat, type ViewerFormat } from './format.ts';
 import { isCloudPlaceholderName, isHiddenDirName, isIndexExcludedDirName, MAX_INDEXABLE_BYTES, shouldIndexFilePath } from './indexable.ts';
 import { normalizeFolderRelativePath } from './folder-relative-path.ts';
 import { folderRoot, resolveSafe } from './file-paths.ts';
@@ -174,7 +174,7 @@ function scanDirectory(dir: string, prefix: string): ScanResult {
         let entry: Pick<FileEntry, 'heading' | 'snippet' | 'imported_at'>;
         if (cached && cached.mtimeMs === st.mtimeMs) {
           entry = { heading: cached.heading, snippet: cached.snippet, imported_at: cached.imported_at };
-        } else if (format === 'pdf' || format === 'image' || format === 'docx' || format === 'audio') {
+        } else if (format === 'pdf' || format === 'image' || format === 'docx' || format === 'xlsx' || format === 'audio') {
           const imported_at = st.mtime.toISOString();
           previewCache.set(full, { mtimeMs: st.mtimeMs, heading: '', snippet: '', imported_at });
           entry = { heading: '', snippet: '', imported_at };
@@ -297,7 +297,7 @@ function visibleDirectoryEntries(entries: fs.Dirent[]): fs.Dirent[] {
     if (isCloudPlaceholderName(entry.name)) return false;
     if (entry.isDirectory() && (isHiddenDirName(entry.name) || isIndexExcludedDirName(entry.name))) return false;
     /* Dot-files and app-derived infrastructure are never user-visible. */
-    if (entry.isFile() && entry.name.startsWith('.')) return false;
+    if (entry.isFile() && (entry.name.startsWith('.') || isOfficeTemporaryFile(entry.name))) return false;
     if (entry.isDirectory() && entry.name.endsWith('_files')) {
       const stem = entry.name.slice(0, -'_files'.length);
       if (noteStems.has(stem) || stem.startsWith('.')) return false;

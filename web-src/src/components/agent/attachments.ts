@@ -1,6 +1,7 @@
 import {
   AUDIO_SOURCE_EXTENSIONS, DOCX_EXTENSIONS, HTML_NOTE_EXTENSIONS,
   IMAGE_SOURCE_EXTENSIONS, PDF_EXTENSIONS, STRUCTURED_DATA_EXTENSIONS,
+  SPREADSHEET_EXTENSIONS,
 } from '../../../../shared/file-formats.ts';
 import type { FileGlyphFormat } from '../FileTree';
 import type { Attachment } from './types';
@@ -16,6 +17,7 @@ export function fileGlyphFormat(name: string): { format: FileGlyphFormat; label:
   const label = ext ? ext.toUpperCase() : 'File';
   if (PDF_EXTENSIONS.includes(ext as never)) return { format: 'pdf', label };
   if (DOCX_EXTENSIONS.includes(ext as never)) return { format: 'docx', label };
+  if (SPREADSHEET_EXTENSIONS.includes(ext as never)) return { format: 'xlsx', label };
   if (HTML_NOTE_EXTENSIONS.includes(ext as never)) return { format: 'html', label };
   if (STRUCTURED_DATA_EXTENSIONS.includes(ext as never)) return { format: 'json', label };
   if (IMAGE_SOURCE_EXTENSIONS.includes(ext as never)) return { format: 'image', label };

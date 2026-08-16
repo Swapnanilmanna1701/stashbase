@@ -59,7 +59,7 @@ does not overwrite or disguise the source.
 
 ## J04: Prepare a hard-to-read file
 
-**Outcome:** PDF, DOCX, image, audio, or supported video content becomes
+**Outcome:** PDF, DOCX, XLSX, image, audio, or supported video content becomes
 searchable while the original remains the visible file.
 
 1. Add or open a source that needs preparation.

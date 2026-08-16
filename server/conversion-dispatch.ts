@@ -19,10 +19,11 @@ import { promoteConversion } from './conversion.ts';
 import { clearRecord } from './conversion-status.ts';
 import { currentDerivedTextPathForDocx, currentDerivedTextPathForDocxAsync, derivedHtmlPathForDocx, discoverNewDocx, indexFreshDocx, maybeConvertDocx } from './docx.ts';
 import { filesystemPath } from './filesystem-path.ts';
-import { isAudioFile, isDocxFile, isImageFile } from './format.ts';
+import { isAudioFile, isDocxFile, isImageFile, isXlsxFile } from './format.ts';
 import { currentDerivedTextPathForImage, currentDerivedTextPathForImageAsync, derivedNotePathForImage, discoverNewImages, indexFreshImage, maybeConvertImage } from './image.ts';
 import { currentDerivedTextPathForPdf, currentDerivedTextPathForPdfAsync, derivedPathsForPdf, discoverNewPdfs, indexFreshPdf, maybeConvertPdf } from './pdf.ts';
 import type { ConfiguredTranscriptionBlock } from '../shared/transcription.ts';
+import { currentDerivedTextPathForXlsx, currentDerivedTextPathForXlsxAsync, derivedTextPathForXlsx, discoverNewXlsx, indexFreshXlsx, maybeConvertXlsx } from './xlsx.ts';
 
 export interface ConvertibleOptions {
   urgency?: 'interactive';
@@ -84,6 +85,17 @@ const FORMATS: readonly ConvertibleFormatAdapter[] = [
     currentTextPath: currentDerivedTextPathForDocx,
     currentTextPathAsync: currentDerivedTextPathForDocxAsync,
     textCandidatePath: derivedHtmlPathForDocx,
+  },
+  {
+    matches: isXlsxFile,
+    queue: (sourceAbs, options) => { void maybeConvertXlsx(sourceAbs, urgencyOnly(options)); },
+    discover: discoverNewXlsx,
+    indexFresh: indexFreshXlsx,
+    reset: (sourceAbs) => fs.rmSync(derivedTextPathForXlsx(sourceAbs), { force: true }),
+    interactive: true,
+    currentTextPath: currentDerivedTextPathForXlsx,
+    currentTextPathAsync: currentDerivedTextPathForXlsxAsync,
+    textCandidatePath: derivedTextPathForXlsx,
   },
   {
     matches: isAudioFile,

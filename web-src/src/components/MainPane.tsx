@@ -22,6 +22,7 @@ const VIEWER_CENTERED_LOADING_CLASS = 'grid h-full place-items-center text-base 
 const LazyCrepeDocument = lazyWithRetry(() => import('./CrepeDocument').then((mod) => ({ default: mod.CrepeDocument })));
 const LazyPdfPreview = lazyWithRetry(() => import('./PdfPreview').then((mod) => ({ default: mod.PdfPreview })));
 const LazyDocxPreview = lazyWithRetry(() => import('./DocxPreview').then((mod) => ({ default: mod.DocxPreview })));
+const LazyXlsxPreview = lazyWithRetry(() => import('./XlsxPreview').then((mod) => ({ default: mod.XlsxPreview })));
 const LazyAudioPreview = lazyWithRetry(() => import('./AudioPreview').then((mod) => ({ default: mod.AudioPreview })));
 const LazyJsonDocument = lazyWithRetry(() => import('./JsonDocument').then((mod) => ({ default: mod.JsonDocument })));
 
@@ -192,6 +193,13 @@ export function MainPane({ workspaceHidden = false }: { workspaceHidden?: boolea
           <LazyLoadBoundary className={VIEWER_CENTERED_LOADING_CLASS} label="document preview" resetKey={resourceResetKey}>
             <Suspense fallback={<div className={VIEWER_CENTERED_LOADING_CLASS}>Opening document…</div>}>
               <LazyDocxPreview name={cur.name} />
+            </Suspense>
+          </LazyLoadBoundary>
+        )}
+        {cur && cur.format === 'xlsx' && (
+          <LazyLoadBoundary className={VIEWER_CENTERED_LOADING_CLASS} label="workbook preview" resetKey={resourceResetKey}>
+            <Suspense fallback={<div className={VIEWER_CENTERED_LOADING_CLASS}>Opening workbook…</div>}>
+              <LazyXlsxPreview name={cur.name} />
             </Suspense>
           </LazyLoadBoundary>
         )}

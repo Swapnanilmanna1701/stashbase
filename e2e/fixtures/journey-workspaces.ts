@@ -1,5 +1,8 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { initSync, Workbook } from '@dukelib/sheets-wasm';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import type { AppFixture } from '../support/fixtures.ts';
 
 export const JOURNEY_MARKDOWN = 'Journey Markdown.md';
@@ -12,6 +15,7 @@ export const MALFORMED_PDF = 'broken.pdf';
 export const MALFORMED_DOCX = 'broken.docx';
 export const JOURNEY_PDF = 'two-pages.pdf';
 export const JOURNEY_DOCX = 'valid-document.docx';
+export const JOURNEY_XLSX = 'quarterly-workbook.xlsx';
 export const LEGACY_DERIVED_NOTE = '.two-pages.pdf.md';
 
 const ONE_PIXEL_PNG = Buffer.from(
@@ -25,6 +29,66 @@ const VALID_DOCX = Buffer.from(
   'UEsDBAoAAAAIALxUDF15bjPX6AAAAK0BAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbH1QyU7DMBD9FWuuKHHggBCK0wPLETiUDxjZk8SqN3nc0v49Tlt6QIXjzFv1+tXeO7GjzDYGBbdtB4KCjsaGScHn+rV5AMEFg0EXAyk4EMNq6NeHRCyqNrCCuZT0KCXrmTxyGxOFiowxeyz1zJNMqDc4kbzrunupYygUSlMWDxj6Zxpx64p42df3qUcmxyCeTsQlSwGm5KzGUnG5C+ZXSnNOaKvyyOHZJr6pBJBXExbk74Cz7r0Ok60h8YG5vKGvLPkVs5Em6q2vyvZ/mys94zhaTRf94pZy1MRcF/euvSAebfjpL49zD99QSwMECgAAAAAAvFQMXQAAAAAAAAAAAAAAAAYAAABfcmVscy9QSwMECgAAAAgAvFQMXZv9N+qtAAAAKQEAAAsAAABfcmVscy8ucmVsc43POw7CMAwG4KtE3mlaBoRQ0y4IqSsqB7ASN61oHkrCo7cnAwNFDIy2f3+W6/ZpZnanECdnBVRFCYysdGqyWsClP232wGJCq3B2lgQsFKFt6jPNmPJKHCcfWTZsFDCm5A+cRzmSwVg4TzZPBhcMplwGzT3KK2ri27Lc8fBpwNpknRIQOlUB6xdP/9huGCZJRydvhmz6ceIrkWUMmpKAhwuKq3e7yCzwpuarF5sXUEsDBAoAAAAAALxUDF0AAAAAAAAAAAAAAAAFAAAAd29yZC9QSwMECgAAAAgAvFQMXRR1VTuxAAAA7gAAABEAAAB3b3JkL2RvY3VtZW50LnhtbEWOMQ7CMAxFrxJlhxQGhKq2DCBWGACxhsRAUWNXdkrp7WnKwPIs/y8/udh8QqPewFITlnoxz7QCdORrfJT6fNrP1lpJtOhtQwilHkD0pir63JPrAmBUowAl70v9jLHNjRH3hGBlTi3g2N2Jg43jyg/TE/uWyYHI6A+NWWbZygRbo07KG/khzTaBE2J1sU3t1e6wvaoXdYwwKOn4bh0UJvWJPHG6EnDxyGYKfjrzf7X6AlBLAQIUAAoAAAAIALxUDF15bjPX6AAAAK0BAAATAAAAAAAAAAAAAAAAAAAAAABbQ29udGVudF9UeXBlc10ueG1sUEsBAhQACgAAAAAAvFQMXQAAAAAAAAAAAAAAAAYAAAAAAAAAAAAQAAAAGQEAAF9yZWxzL1BLAQIUAAoAAAAIALxUDF2b/TfqrQAAACkBAAALAAAAAAAAAAAAAAAAAD0BAABfcmVscy8ucmVsc1BLAQIUAAoAAAAAALxUDF0AAAAAAAAAAAAAAAAFAAAAAAAAAAAAEAAAABMCAAB3b3JkL1BLAQIUAAoAAAAIALxUDF0UdVU7sQAAAO4AAAARAAAAAAAAAAAAAAAAADYCAAB3b3JkL2RvY3VtZW50LnhtbFBLBQYAAAAABQAFACABAAAWAwAAAAA=',
   'base64',
 );
+
+let sheetsInitialized = false;
+function validXlsx(): Buffer {
+  if (!sheetsInitialized) {
+    const require = createRequire(import.meta.url);
+    const modulePath = require.resolve('@dukelib/sheets-wasm');
+    initSync({ module: fs.readFileSync(path.join(path.dirname(modulePath), 'duke_sheets_wasm_bg.wasm')) });
+    sheetsInitialized = true;
+  }
+  const workbook = new Workbook();
+  try {
+    const summary = workbook.getSheet(0);
+    summary.setCell('A1', 'Quarter');
+    summary.setCell('B1', 'Revenue');
+    summary.setCell('A2', 'Q1');
+    summary.setCell('B2', 42);
+    summary.setFormula('C2', '=B2*2');
+    summary.setCell('A3', 'External link must remain inert');
+    summary.setCell('A4', 'Open Forecast internally');
+    summary.mergeCells('A5:B5');
+    summary.setCell('A5', 'Merged summary');
+    summary.addDrawing({
+      kind: 'image',
+      name: 'Quarterly marker',
+      altText: 'Quarterly marker image',
+      anchor: { type: 'twoCell', from: { col: 3, row: 2 }, to: { col: 4, row: 4 } },
+      image: { format: 'png', widthEmu: 9525, heightEmu: 9525, data: ONE_PIXEL_PNG },
+    });
+    summary.addDrawing({
+      kind: 'chart',
+      name: 'Quarterly revenue chart',
+      anchor: { type: 'twoCell', from: { col: 5, row: 0 }, to: { col: 9, row: 8 } },
+      chart: {
+        chartType: 'ColumnClustered',
+        title: 'Quarterly revenue chart',
+        series: [{ name: 'Revenue', categories: { refType: 'strings', strings: ['Q1'] }, values: { refType: 'numbers', numbers: [42] } }],
+      },
+    });
+    summary.free();
+    const detailIndex = workbook.addSheet('Forecast');
+    const detail = workbook.getSheet(detailIndex);
+    detail.setCell('A1', 'Projected');
+    detail.setCell('B1', 84);
+    detail.free();
+    workbook.calculate();
+    const archive = unzipSync(workbook.saveXlsxBytes());
+    const worksheetPath = 'xl/worksheets/sheet1.xml';
+    let worksheet = strFromU8(archive[worksheetPath]);
+    worksheet = worksheet.replace(/<worksheet([^>]*)>/, '<worksheet$1><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>');
+    worksheet = worksheet.replace('</worksheet>', '<hyperlinks><hyperlink ref="A3" r:id="stashExternal"/><hyperlink ref="A4" location="&apos;Forecast&apos;!A1"/></hyperlinks></worksheet>');
+    archive[worksheetPath] = strToU8(worksheet);
+    const relationshipsPath = 'xl/worksheets/_rels/sheet1.xml.rels';
+    const hyperlinkRelationship = '<Relationship Id="stashExternal" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://network.invalid/stashbase-xlsx" TargetMode="External"/>';
+    const relationships = archive[relationshipsPath]
+      ? strFromU8(archive[relationshipsPath]).replace('</Relationships>', `${hyperlinkRelationship}</Relationships>`)
+      : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${hyperlinkRelationship}</Relationships>`;
+    archive[relationshipsPath] = strToU8(relationships);
+    return Buffer.from(zipSync(archive));
+  } finally { workbook.free(); }
+}
 
 function write(file: string, content: string | Buffer): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -83,6 +147,8 @@ export function seedJourneyWorkspaces(fixture: AppFixture): void {
   write(path.join(projectA, MALFORMED_DOCX), 'not a zip-backed office document');
   write(path.join(projectA, JOURNEY_PDF), twoPagePdf());
   write(path.join(projectA, JOURNEY_DOCX), VALID_DOCX);
+  write(path.join(projectA, JOURNEY_XLSX), validXlsx());
+  write(path.join(projectA, '~$quarterly-workbook.xlsx'), 'temporary Office lock file');
   write(path.join(projectA, LEGACY_DERIVED_NOTE), '# Hidden derived regression phrase\n');
   write(path.join(projectB, 'beta-pixel.png'), ONE_PIXEL_PNG);
   write(path.join(projectA, JOURNEY_MARKDOWN), [

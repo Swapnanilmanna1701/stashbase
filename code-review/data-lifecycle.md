@@ -27,6 +27,12 @@
 - Durable DOCX text is complete only when current sanitized derived HTML has
   extractable text and its marker. The direct renderer preview has no durable
   completion state and does not wait for this path.
+- Durable XLSX text is complete only when bounded extraction publishes an
+  atomic Markdown artifact with its terminal marker. Worksheet order, names,
+  A1 coordinates, displayed values, and inert formulas remain attributable to
+  the original workbook path. The marker binds the artifact to the source's
+  device, inode, size, mtime, and ctime identity so timestamp-preserving
+  replacements cannot reuse stale worksheet text.
 - Media preparation requires both validated structured transcript JSON and
   timestamped Markdown with the terminal marker. Chunk checkpoints and the
   lazy compatible playback preview never establish transcript completion.
@@ -147,6 +153,13 @@ contracts, not because every tuning value belongs in prose:
   and Python;
 - media transcription uses ten-minute durable work units with `1.5 s` overlap;
 - durable DOCX extraction has a `60 s` worker deadline.
+- XLSX container preflight admits at most `25 MiB` compressed, `200 MiB`
+  expanded, `200` worksheets, and `50 MiB` images. Preparation additionally
+  admits at most `500,000` populated cells, `2,000,000` scanned grid slots,
+  and `32 MiB` extracted text; preparation has a
+  `60 s` worker deadline and direct preview has a `30 s` deadline. Encrypted,
+  ZIP64, unsafe-path, and malformed packages
+  fail without publishing partial output.
 
 Keep the Node/Python admission bound synchronized. A change to capacity,
 chunking, or deadlines requires the focused liveness tests and an explanation
@@ -162,8 +175,8 @@ of the resource tradeoff.
 | Index Interface | `server/indexer.ts`, implemented by `server/indexer.mfs.ts` |
 | Daemon Adapter | `server/mfs-daemon.ts` ↔ `python/stashbase_daemon.py` |
 | Retrieval Interface | `server/retrieval/index.ts`, with keyword, semantic, and evidence Modules beside it |
-| Format owners | PDF, OCR, DOCX, and audio Modules under `server/` plus their native/Python Adapters |
-| Focused evidence | `server/conversion-scheduler.test.ts`, `server/conversion.test.ts`, `server/conversion-status.test.ts`, `server/semantic-workload.test.ts`, `server/index-status.test.ts`, `server/indexer-mfs-path.test.ts`, `server/audio-transcription.test.ts`, `server/retrieval/index.test.ts`, and `python/stashbase_daemon_test.py` |
+| Format owners | PDF, OCR, DOCX, XLSX, and audio Modules under `server/` plus their native/Python/WASM Adapters |
+| Focused evidence | `server/conversion-scheduler.test.ts`, `server/conversion.test.ts`, `server/conversion-status.test.ts`, `server/xlsx.test.ts` (container/extraction bounds, cancellation, source freshness, and late-generation retirement), `server/semantic-workload.test.ts`, `server/index-status.test.ts`, `server/indexer-mfs-path.test.ts`, `server/audio-transcription.test.ts`, `server/retrieval/index.test.ts`, and `python/stashbase_daemon_test.py` |
 
 ## Review Checklist
 

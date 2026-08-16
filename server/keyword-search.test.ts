@@ -145,6 +145,7 @@ test('search type categories map to source extensions', () => {
   assert.deepEqual(searchExtensionsForTypes(['notes']), ['.md', '.markdown', '.html', '.htm']);
   assert.deepEqual(searchExtensionsForTypes(['data']), ['.json']);
   assert.deepEqual(searchExtensionsForTypes(['docx', 'docx']), ['.docx']);
+  assert.deepEqual(searchExtensionsForTypes(['spreadsheets']), ['.xlsx']);
   assert.deepEqual(
     searchExtensionsForTypes(['audio']),
     [
@@ -153,7 +154,7 @@ test('search type categories map to source extensions', () => {
     ],
   );
   assert.equal(searchExtensionsForTypes([]), null);
-  assert.equal(searchExtensionsForTypes(['notes', 'data', 'pdf', 'image', 'docx', 'audio']), null);
+  assert.equal(searchExtensionsForTypes(['notes', 'data', 'pdf', 'image', 'docx', 'spreadsheets', 'audio']), null);
 });
 
 test('type membership checks extensions case-insensitively', () => {
@@ -161,6 +162,7 @@ test('type membership checks extensions case-insensitively', () => {
   assert.equal(matchesSearchTypes('a/report.pdf', ['notes']), false);
   assert.equal(matchesSearchTypes('shot.jpeg', ['image']), true);
   assert.equal(matchesSearchTypes('doc.docx', ['pdf', 'docx']), true);
+  assert.equal(matchesSearchTypes('Budget.XLSX', ['spreadsheets']), true);
   assert.equal(matchesSearchTypes('meeting.M4A', ['audio']), true);
   assert.equal(matchesSearchTypes('clip.MOV', ['audio']), true);
   assert.equal(matchesSearchTypes('meeting.m4a', ['docx']), false);

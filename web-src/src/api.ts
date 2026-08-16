@@ -247,6 +247,8 @@ export const api = {
    *  scheduler priority. Visible preview does not wait for this request. */
   prepareDocx: (path: string, opts?: { folder?: string }) =>
     send<{ ok: boolean }>('POST', '/api/files/prepare', { path, folder: opts?.folder }),
+  prepareXlsx: (path: string, opts?: { folder?: string }) =>
+    send<{ ok: boolean }>('POST', '/api/files/prepare', { path, folder: opts?.folder }),
   prepareAudio: (path: string, opts?: { folder?: string }) =>
     send<{ ok: boolean }>('POST', '/api/files/prepare', { path, folder: opts?.folder }),
   prepareAudioPreview: async (path: string, opts: { signal?: AbortSignal; folder?: string } = {}) => {

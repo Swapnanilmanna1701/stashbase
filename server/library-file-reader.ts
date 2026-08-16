@@ -27,7 +27,7 @@ export interface LibraryFileRead {
 
 export function isAgentReadableDerivedTextReady(
   sourceAbs: string,
-  sourceFormat: 'pdf' | 'docx' | 'audio',
+  sourceFormat: 'pdf' | 'docx' | 'xlsx' | 'audio',
 ): boolean {
   if (isConversionTextUnavailable(sourceAbs) || isAudioTranscriptTextUnavailable(sourceAbs)) return false;
   const derivedAbs = sourceFormat === 'docx'
@@ -44,7 +44,7 @@ export async function agentContextFile(rawPath: unknown): Promise<AgentContextFi
     if (!sourceFormat) throw routeError('unsupported format', 415, 'UNSUPPORTED_FORMAT');
     if (!pathExists(target.folderRel)) throw routeError('not found', 404);
 
-    if (sourceFormat !== 'pdf' && sourceFormat !== 'docx' && sourceFormat !== 'audio') {
+    if (sourceFormat !== 'pdf' && sourceFormat !== 'docx' && sourceFormat !== 'xlsx' && sourceFormat !== 'audio') {
       return {
         path: target.abs,
         folder: folderName,
@@ -87,6 +87,8 @@ export async function agentContextFile(rawPath: unknown): Promise<AgentContextFi
         available: false,
         reason: sourceFormat === 'docx'
           ? 'No extracted HTML exists yet for this DOCX; retry after conversion if you need text context.'
+          : sourceFormat === 'xlsx'
+            ? 'No extracted worksheet text exists yet for this workbook; retry after preparation.'
           : sourceFormat === 'audio'
             ? 'No transcript exists yet for this media file; install the selected local model or retry after transcription.'
             : 'No extracted Markdown exists yet for this PDF; retry after conversion if you need text context.',
@@ -103,6 +105,8 @@ export async function agentContextFile(rawPath: unknown): Promise<AgentContextFi
       available: true,
       reason: sourceFormat === 'docx'
         ? 'Read the extracted HTML file (an absolute app-data path) first for this DOCX; the original DOCX stays as the source identity.'
+        : sourceFormat === 'xlsx'
+          ? 'Read the worksheet Markdown (an absolute app-data path) first; the original XLSX stays as the source identity.'
         : sourceFormat === 'audio'
           ? 'Read the timestamped transcript Markdown (an absolute app-data path) first; the original audio stays as the source identity.'
           : 'Read the extracted Markdown note (an absolute app-data path) first for this PDF; use the original only when raw visual or binary detail is needed.',
@@ -124,6 +128,9 @@ export async function readLibraryFile(rawPath: unknown): Promise<LibraryFileRead
       if (viewerFormat === 'docx') {
         return readSourceDerivedFile(target.abs, target.folderRel, 'docx');
       }
+      if (viewerFormat === 'xlsx') {
+        return readSourceDerivedFile(target.abs, target.folderRel, 'xlsx');
+      }
       if (viewerFormat === 'audio') {
         return readSourceDerivedFile(target.abs, target.folderRel, 'audio');
       }
@@ -143,7 +150,7 @@ export async function readLibraryFile(rawPath: unknown): Promise<LibraryFileRead
   });
 }
 
-function readSourceDerivedFile(sourceAbs: string, folderRel: string, sourceFormat: 'pdf' | 'docx' | 'audio'): LibraryFileRead {
+function readSourceDerivedFile(sourceAbs: string, folderRel: string, sourceFormat: 'pdf' | 'docx' | 'xlsx' | 'audio'): LibraryFileRead {
   const label = sourceFormat === 'docx' ? 'HTML' : 'Markdown';
   if (isConversionTextUnavailable(sourceAbs) || isAudioTranscriptTextUnavailable(sourceAbs)) {
     throw routeError(`extracted ${label} is pending or preparation failed; retry after completion or reprocess the ${sourceFormat.toUpperCase()}`, 409, 'CONVERSION_NOT_READY');
@@ -160,7 +167,7 @@ function readSourceDerivedFile(sourceAbs: string, folderRel: string, sourceForma
   }
   return {
     path: sourceAbs,
-    format: sourceFormat === 'docx' ? 'docx-derived-html' : sourceFormat === 'audio' ? 'audio-transcript-md' : 'pdf-derived-md',
+    format: sourceFormat === 'docx' ? 'docx-derived-html' : sourceFormat === 'xlsx' ? 'xlsx-derived-md' : sourceFormat === 'audio' ? 'audio-transcript-md' : 'pdf-derived-md',
     sourceFormat,
     readPath: derivedAbs,
     derived: true,
@@ -194,13 +201,13 @@ function readDerivedLibraryFile(derivedAbs: string, sourceAbs: string, folderRoo
     throw routeError('derived source path is invalid for its folder', 400);
   }
   const sourceFormat = detectViewerFormat(folderRel);
-  if (sourceFormat !== 'pdf' && sourceFormat !== 'docx' && sourceFormat !== 'audio') {
-    throw routeError('derived reads are only exposed for PDF/DOCX/audio text context', 403);
+  if (sourceFormat !== 'pdf' && sourceFormat !== 'docx' && sourceFormat !== 'xlsx' && sourceFormat !== 'audio') {
+    throw routeError('derived reads are only exposed for PDF/DOCX/XLSX/audio text context', 403);
   }
   return runWithFolderRoot(folderRoot, async () => {
     return {
       path: sourceAbs,
-      format: sourceFormat === 'docx' ? 'docx-derived-html' : sourceFormat === 'audio' ? 'audio-transcript-md' : 'pdf-derived-md',
+      format: sourceFormat === 'docx' ? 'docx-derived-html' : sourceFormat === 'xlsx' ? 'xlsx-derived-md' : sourceFormat === 'audio' ? 'audio-transcript-md' : 'pdf-derived-md',
       sourceFormat,
       readPath: derivedAbs,
       derived: true,
@@ -210,13 +217,15 @@ function readDerivedLibraryFile(derivedAbs: string, sourceAbs: string, folderRoo
   });
 }
 
-function readDerivedText(derivedAbs: string, sourceFormat: 'pdf' | 'docx' | 'audio'): string {
+function readDerivedText(derivedAbs: string, sourceFormat: 'pdf' | 'docx' | 'xlsx' | 'audio'): string {
   try {
     return readUtf8FileBounded(derivedAbs);
   } catch (err) {
     if ((err as { code?: unknown })?.code === 'FILE_TOO_LARGE') throw err;
     throw routeError(sourceFormat === 'docx'
       ? 'extracted HTML is not available for this DOCX yet; retry conversion or run reindex first'
+      : sourceFormat === 'xlsx'
+        ? 'worksheet Markdown is not available for this XLSX yet; retry preparation first'
       : sourceFormat === 'audio'
         ? 'transcript Markdown is not available for this media file yet; install a model or retry transcription first'
         : 'extracted Markdown is not available for this PDF yet; retry conversion or run reindex first', 409, 'CONVERSION_NOT_READY');

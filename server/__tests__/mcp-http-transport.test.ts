@@ -95,7 +95,7 @@ test('HTTP transport enforces the live Settings token and preserves the shared t
     const searchTool = listed.body.result.tools.find((tool: any) => tool.name === 'search_library');
     assert.deepEqual(
       searchTool.inputSchema.properties.types.items.enum,
-      ['notes', 'data', 'pdf', 'image', 'docx', 'audio'],
+      ['notes', 'data', 'pdf', 'image', 'docx', 'spreadsheets', 'audio'],
     );
     assert.deepEqual(searchTool.inputSchema.properties.mode.enum, ['semantic', 'keyword']);
     const createProjectTool = listed.body.result.tools.find((tool: any) => tool.name === 'create_project');

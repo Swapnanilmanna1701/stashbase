@@ -334,6 +334,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tab.file.format === 'pdf'
         || tab.file.format === 'image'
         || tab.file.format === 'docx'
+        || tab.file.format === 'xlsx'
         || tab.file.format === 'audio'
       ) {
         const stat = await api.statFile(name, readOpts);

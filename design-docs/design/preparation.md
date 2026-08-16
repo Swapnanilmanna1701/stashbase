@@ -7,7 +7,7 @@ original file remains visible, openable, and authoritative.
 
 ## Scope and Non-goals
 
-Preparation covers PDF extraction, image OCR, durable DOCX text derivation,
+Preparation covers PDF extraction, image OCR, durable DOCX and XLSX text derivation,
 audio/video transcription, compatible audio preview generation, progress, and
 recovery. Together with Search and Retrieval, it forms the local RAG layer. It
 does not own the visible source preview or semantic ranking.
@@ -19,12 +19,12 @@ artifacts.
 
 - Markdown and JSON use source text directly. HTML supplies an in-memory text
   representation for retrieval. They do not gain visible derived files.
-- PDF, image, DOCX, audio, and supported video sources may gain AppData-derived
+- PDF, image, DOCX, XLSX, audio, and supported video sources may gain AppData-derived
   text. PDF and media derived text also serves Agent reading; source identity
   remains unchanged.
 - Preparation runs in the background with interactive and open-folder work
   preferred over library background work.
-- Direct DOCX preview and ordinary media playback do not wait for durable
+- Direct DOCX/XLSX preview and ordinary media playback do not wait for durable
   search preparation.
 - Users see preparing, ready, blocked, failed, cancelled, and retryable states
   only when they change the next action. Missing optional capabilities do not

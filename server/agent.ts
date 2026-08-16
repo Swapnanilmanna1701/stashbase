@@ -167,10 +167,10 @@ function needsPrompt(name: string): boolean {
   return false;
 }
 
-type AgentReadableDerivedFormat = 'pdf' | 'docx' | 'audio';
+type AgentReadableDerivedFormat = 'pdf' | 'docx' | 'xlsx' | 'audio';
 
 function agentReadableDerivedFormat(format: string | null): AgentReadableDerivedFormat | null {
-  return format === 'pdf' || format === 'docx' || format === 'audio' ? format : null;
+  return format === 'pdf' || format === 'docx' || format === 'xlsx' || format === 'audio' ? format : null;
 }
 
 function nativeReadPath(input: Record<string, unknown>, cwd: string): string | null {
@@ -207,6 +207,8 @@ function nativeDerivedReadRedirect(
   alreadyRedirected.add(key);
   const textKind = sourceFormat === 'docx'
     ? 'derived HTML'
+    : sourceFormat === 'xlsx'
+      ? 'worksheet Markdown'
     : sourceFormat === 'audio'
       ? 'transcript Markdown'
       : 'extracted Markdown';

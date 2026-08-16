@@ -8,6 +8,7 @@ import {
   JOURNEY_DOCX,
   JOURNEY_HTML,
   JOURNEY_PDF,
+  JOURNEY_XLSX,
   LEGACY_DERIVED_NOTE,
   MALFORMED_DOCX,
   MALFORMED_PDF,
@@ -156,6 +157,123 @@ test('valid DOCX renders its document and legacy derived notes never surface as 
       // replacement succeeds; the rendered DOCX assertion above owns success.
       /request: GET .*\/asset\/.*\/valid-document\.docx.*: net::ERR_ABORTED/,
       /console: Blocked script execution in 'about:srcdoc' because the document's frame is sandboxed and the 'allow-scripts' permission is not set\./,
+    ]);
+  } finally {
+    await app?.close();
+    await fixture.cleanup();
+  }
+});
+
+test('valid XLSX opens as a source-identified read-only multi-sheet workbook', async ({}, testInfo) => {
+  const fixture = await createAppFixture({ membership: 'one-folder' });
+  seedJourneyWorkspaces(fixture);
+  let app: LaunchedApp | undefined;
+  try {
+    app = await launchApp(fixture, testInfo);
+    await openLibraryFolder(app.page, 'project-alpha');
+    await dismissEmbeddingKeyPrompt(app.page);
+
+    await expect(fileTreeRow(app.page, '~$quarterly-workbook.xlsx')).toHaveCount(0);
+    await fileTreeRow(app.page, JOURNEY_XLSX).click();
+    await expect(app.page.getByTestId('xlsx-preview')).toBeVisible();
+    await expect(app.page.getByText('Read only', { exact: true })).toBeVisible();
+    await expect(app.page.getByRole('button', { name: 'Zoom in' })).toBeEnabled();
+    await expect(app.page.getByRole('button', { name: 'Zoom out' })).toBeEnabled();
+    await expect(app.page.getByText('Forecast', { exact: true })).toBeVisible();
+    await expect(app.page.getByRole('img', { name: 'Quarterly revenue chart' })).toBeVisible();
+    const workbookImage = app.page.getByRole('img', { name: 'Quarterly marker image' });
+    await expect(workbookImage).toBeVisible();
+    expect(await workbookImage.evaluate((image: HTMLImageElement) => ({
+      complete: image.complete,
+      naturalHeight: image.naturalHeight,
+      naturalWidth: image.naturalWidth,
+    }))).toEqual({ complete: true, naturalHeight: 1, naturalWidth: 1 });
+    await app.page.evaluate(() => {
+      (window as typeof window & { __xlsxExternalOpens?: string[] }).__xlsxExternalOpens = [];
+      window.open = ((url?: string | URL) => {
+        (window as typeof window & { __xlsxExternalOpens?: string[] }).__xlsxExternalOpens?.push(String(url));
+        return null;
+      }) as typeof window.open;
+    });
+    const grid = app.page.getByRole('grid', { name: 'Sheet1 worksheet grid' });
+    await expect(app.page.getByTestId('xlsx-feature-summary')).toHaveText('Workbook features: frozen panes; merged cells; 1 image; 1 chart.');
+    const frozenBodyPane = await grid.locator('canvas').nth(1).boundingBox();
+    expect(frozenBodyPane?.height ?? 0).toBeGreaterThan(0);
+    const box = await grid.boundingBox();
+    expect(box).not.toBeNull();
+    // Canvas grid geometry is stable: 40 px row header, 24 px column header,
+    // 80 px default columns, and the workbook's 20 px default rows.
+    await app.page.mouse.click(box!.x + 86, box!.y + 24 + (2 * 24) + 12);
+    await expect(app.page.getByText('A3', { exact: true })).toBeVisible();
+    await app.page.mouse.click(box!.x + 86, box!.y + 24 + (2 * 24) + 12);
+    await expect.poll(() => app!.page.evaluate(() => (
+      (window as typeof window & { __xlsxExternalOpens?: string[] }).__xlsxExternalOpens ?? []
+    ))).toEqual([]);
+    await app.page.mouse.click(box!.x + 80, box!.y + 24 + (3 * 20) + 10);
+    await expect(app.page.getByText('A4', { exact: true })).toBeVisible();
+    await app.page.mouse.click(box!.x + 80, box!.y + 24 + (3 * 20) + 10);
+    await expect(app.page.getByRole('grid', { name: 'Forecast worksheet grid' })).toBeVisible();
+    await app.page.getByRole('tab', { name: 'Sheet1' }).click();
+    await expect(app.page.getByRole('grid', { name: 'Sheet1 worksheet grid' })).toBeVisible();
+    await grid.focus();
+    await app.page.keyboard.press(`${primaryKey}+Home`);
+    await app.page.keyboard.press('Shift+ArrowRight');
+    await app.page.keyboard.press('Shift+ArrowRight');
+    await app.page.keyboard.press('Shift+ArrowDown');
+    await expect(app.page.getByText('A1:C2', { exact: true })).toBeVisible();
+    await app.page.getByRole('button', { name: 'Copy selected cells' }).click();
+    await expect(app.page.getByText('Selected cells copied', { exact: true })).toBeAttached();
+    const copiedRange = await app.electron.evaluate(({ clipboard }) => clipboard.readText());
+    expect(copiedRange).toBe('Quarter\tRevenue\t\nQ1\t42\t84');
+    await expect(app.page.getByRole('tab', { name: new RegExp(JOURNEY_XLSX) })).toHaveAttribute('aria-selected', 'true');
+    await expect(app.page.getByRole('button', { name: 'Switch to Live Editing' })).toHaveCount(0);
+
+    await app.page.getByRole('button', { name: `Close ${JOURNEY_XLSX}` }).click();
+    await app.page.keyboard.press(`${primaryKey}+Shift+F`);
+    const search = app.page.getByRole('dialog', { name: 'Search library' });
+    await search.getByRole('button', { name: 'Exact', exact: true }).click();
+    await search.getByRole('combobox').fill('Projected');
+    const result = search.locator(`[role="option"][title=${JSON.stringify(`${fixture.workspaces.projectA}/${JOURNEY_XLSX}`)}]`);
+    await expect(result).toBeVisible({ timeout: 20_000 });
+    await result.click();
+    await expect(app.page.getByTestId('xlsx-preview')).toBeVisible();
+    await expect(app.page.getByRole('grid', { name: 'Sheet1 worksheet grid' })).toBeVisible();
+    expectOnlyKnownViewerFailures(app, [
+      /request: HEAD .*\/api\/files\/quarterly-workbook\.xlsx: net::ERR_ABORTED/,
+    ]);
+  } finally {
+    await app?.close();
+    await fixture.cleanup();
+  }
+});
+
+test('XLSX direct preview remains available when searchable preparation fails', async ({}, testInfo) => {
+  const fixture = await createAppFixture({ membership: 'one-folder' });
+  seedJourneyWorkspaces(fixture);
+  let app: LaunchedApp | undefined;
+  try {
+    app = await launchApp(fixture, testInfo);
+    await openLibraryFolder(app.page, 'project-alpha');
+    await dismissEmbeddingKeyPrompt(app.page);
+    let rejectedPreparations = 0;
+    await app.page.route('**/api/files/prepare', async (route) => {
+      const request = route.request();
+      const body = request.postDataJSON() as { path?: unknown };
+      if (body.path === JOURNEY_XLSX) {
+        rejectedPreparations += 1;
+        await route.abort('failed');
+      } else {
+        await route.continue();
+      }
+    });
+    await fileTreeRow(app.page, JOURNEY_XLSX).click();
+    await expect(app.page.getByRole('grid', { name: 'Sheet1 worksheet grid' })).toBeVisible();
+    await expect(app.page.getByText('Read only', { exact: true })).toBeVisible();
+    await expect.poll(() => rejectedPreparations).toBe(1);
+    expectOnlyKnownViewerFailures(app, [
+      /request: HEAD .*\/api\/files\/quarterly-workbook\.xlsx: net::ERR_ABORTED/,
+      /request: POST .*\/api\/files\/prepare: net::ERR_FAILED/,
+      /console: Failed to load resource: net::ERR_FAILED/,
     ]);
   } finally {
     await app?.close();

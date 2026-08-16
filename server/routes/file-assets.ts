@@ -12,6 +12,7 @@ import { exactMemberFolderRoot, runWithFolderRoot, toSourcePath } from '../folde
 import { sendError } from '../http.ts';
 import { isAudioFile } from '../format.ts';
 import { prepareAudioPreview, readAudioPreviewStatus } from '../audio-transcription.ts';
+import { inspectXlsxContainer, readBoundedXlsx } from '../xlsx.ts';
 
 const MIME: Record<string, string> = {
   '.png': 'image/png',
@@ -29,6 +30,7 @@ const MIME: Record<string, string> = {
   '.ttf': 'font/ttf',
   '.otf': 'font/otf',
   '.pdf': 'application/pdf',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
   '.m4a': 'audio/mp4',
@@ -64,6 +66,14 @@ export function mountFileAssetRoutes(app: express.Express): void {
         } catch (err: unknown) {
           sendError(res, err);
         }
+        return;
+      }
+      if (ext === '.xlsx') {
+        void readBoundedXlsx(abs)
+          .then((bytes) => { inspectXlsxContainer(bytes); res.type(MIME['.xlsx']).send(bytes); })
+          .catch((err: unknown) => {
+            if (!res.headersSent) res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
+          });
         return;
       }
       if (ext === '.webm' || ext === '.mp4' || ext === '.mov' || ext === '.m4v' || isAudioFile(abs)) {

@@ -15,7 +15,7 @@ import { useFolderActions } from './useFolderActions';
 import { useSearchActions } from './useSearchActions';
 
 type Dispatch = (action: Action) => void;
-const ACTIVATION_REVALIDATED_FORMATS = new Set(['md', 'pdf', 'image', 'docx', 'audio']);
+const ACTIVATION_REVALIDATED_FORMATS = new Set(['md', 'pdf', 'image', 'docx', 'xlsx', 'audio']);
 
 type Toast = (message: string, opts?: {
   level?: 'info' | 'success' | 'warning' | 'error';

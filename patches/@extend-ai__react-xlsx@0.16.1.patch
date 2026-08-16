@@ -1,0 +1,62 @@
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -7891,16 +7891,9 @@
+   for (let index = 0; index < initialWorkbook.sheetCount; index += 1) {
+     totalFormulas += initialWorkbook.getSheet(index).formulaCount;
+   }
+-  const shouldAutoCalculate = totalFormulas <= FORMULA_COUNT_THRESHOLD;
+-  if (!shouldAutoCalculate) {
+-    return { shouldAutoCalculate, workbook: initialWorkbook };
+-  }
+-  const result = safeCalculate(initialWorkbook, {
+-    reparse: () => wasmModule.Workbook.fromBytes(new Uint8Array(buffer))
+-  });
+   return {
+-    shouldAutoCalculate: result.calculated,
+-    workbook: result.workbook
++    shouldAutoCalculate: false,
++    workbook: initialWorkbook
+   };
+ }
+ function scheduleLowPriorityTask(task) {
+--- a/dist/xlsx-worker.js
++++ b/dist/xlsx-worker.js
+@@ -5214,12 +5214,6 @@
+   for (let index = 0; index < activeWorkbook.sheetCount; index += 1) {
+     totalFormulas += activeWorkbook.getSheet(index).formulaCount;
+   }
+-  if (totalFormulas <= FORMULA_COUNT_THRESHOLD) {
+-    const result = safeCalculate(activeWorkbook, {
+-      reparse: () => wasmModule.Workbook.fromBytes(bytes)
+-    });
+-    activeWorkbook = result.workbook;
+-  }
+   const nextWorkbook = activeWorkbook;
+   const shouldUseFastStructureParse = bytes.byteLength >= FAST_STRUCTURE_PARSE_THRESHOLD_BYTES && totalFormulas <= FORMULA_COUNT_THRESHOLD;
+   const structureAssets = effectiveSkipXmlParsing || shouldUseFastStructureParse || !canParseXmlInWorker() ? null : parseWorkbookStructureAssets(bytes, {
+@@ -5275,12 +5269,6 @@
+   let totalFormulas = 0;
+   for (let index = 0; index < activeWorkbook.sheetCount; index += 1) {
+     totalFormulas += activeWorkbook.getSheet(index).formulaCount;
+-  }
+-  if (totalFormulas <= FORMULA_COUNT_THRESHOLD) {
+-    const result = safeCalculate(activeWorkbook, {
+-      reparse: () => wasmModule.Workbook.fromBytes(bytes)
+-    });
+-    activeWorkbook = result.workbook;
+   }
+   const nextWorkbook = activeWorkbook;
+   const visibleSheetIndexByWorkbookSheetIndex = buildVisibleSheetIndexByWorkbookSheetIndex(nextWorkbook, showHiddenSheets);
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -24966,10 +24966,6 @@
+         return;
+       }
+     }
+-    const externalTarget = target && !target.startsWith("#") ? target : null;
+-    if (externalTarget && typeof window !== "undefined") {
+-      window.open(externalTarget, "_blank", "noopener,noreferrer");
+-    }
+   }, [activeSheetIndex, selectCell, setActiveSheetIndex, sheets]);
+   const startEditing = React4.useCallback(
+     (cell, initialValue) => {

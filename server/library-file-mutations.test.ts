@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import type { Server as HttpServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { initSync, Workbook } from '@dukelib/sheets-wasm';
+
+const moduleRequire = createRequire(import.meta.url);
+const sheetsModulePath = moduleRequire.resolve('@dukelib/sheets-wasm');
+initSync({ module: fs.readFileSync(path.join(path.dirname(sheetsModulePath), 'duke_sheets_wasm_bg.wasm')) });
 
 const isolatedEnvNames = [
   'HOME',
@@ -171,6 +177,33 @@ $$`;
   const jsonRead = await callTool(base, token, 'read_file', { path: jsonSource });
   assert.equal(jsonRead.format, 'json');
   assert.equal(jsonRead.content, '\uFEFF{\r\n  "z": 1,\r\n  "broken":\r\n');
+
+  const workbookSource = path.join(root, 'Data', 'forecast.xlsx');
+  const workbook = new Workbook();
+  try {
+    const sheet = workbook.getSheet(0);
+    sheet.setCell('A1', 'MCP workbook evidence');
+    sheet.free();
+    fs.writeFileSync(workbookSource, workbook.saveXlsxBytes());
+  } finally { workbook.free(); }
+  const { maybeConvertXlsx } = await import('./xlsx.ts');
+  const prepared = maybeConvertXlsx(workbookSource, { urgency: 'interactive' });
+  assert.ok(prepared);
+  await prepared;
+  const workbookRead = await callTool(base, token, 'read_file', { path: workbookSource });
+  assert.equal(workbookRead.path, workbookSource);
+  assert.equal(workbookRead.sourceFormat, 'xlsx');
+  assert.equal(workbookRead.format, 'xlsx-derived-md');
+  assert.equal(workbookRead.derived, true);
+  assert.notEqual(workbookRead.readPath, workbookSource);
+  assert.match(workbookRead.content, /A1: MCP workbook evidence/);
+  const { agentContextFile } = await import('./library-file-reader.ts');
+  const agentWorkbook = await agentContextFile(workbookSource);
+  assert.equal(agentWorkbook.path, workbookSource);
+  assert.equal(agentWorkbook.sourceFormat, 'xlsx');
+  assert.equal(agentWorkbook.kind, 'derived');
+  assert.equal(agentWorkbook.available, true);
+  assert.notEqual(agentWorkbook.readPath, workbookSource);
   const jsonEdited = await callTool(base, token, 'edit_file', {
     path: jsonSource,
     old_text: '"z": 1',

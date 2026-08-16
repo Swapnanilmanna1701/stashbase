@@ -10,7 +10,7 @@ the source remains the durable object shared with other tools and Agents.
 This area owns document tabs and format-appropriate reading or editing
 experiences. Together with the Workspace area, it forms the Document
 Workbench. It includes Markdown, source-authoritative JSON, HTML, PDF, DOCX,
-images, audio, and supported video containers. Preparation and indexing are
+XLSX, images, audio, and supported video containers. Preparation and indexing are
 separate areas.
 
 StashBase is not an unrestricted browser, a script host, a pixel-perfect Word
@@ -46,6 +46,10 @@ editor, a media editor, or a proprietary document format.
   fallback. Images use the shared lightbox. Audio and supported video
   containers expose playback and synchronized transcript evidence when
   available.
+- XLSX opens directly in a worker-backed, read-only workbook surface with
+  source-order worksheet tabs, selection/copy, zoom, common formatting,
+  images, and charts. Cached formula values may display; StashBase neither
+  recalculates nor saves workbook content.
 - Safe workspace-relative links stay in StashBase. HTTP(S) links use the
   system browser. Markdown, DOCX, and Agent-rendered executable content stays
   inert.

@@ -40,7 +40,7 @@ user-managed results.
 - Exact and Similar modes share one query surface. Results preserve rank while
   grouping evidence by folder when needed.
 - A result always identifies a source file. Evidence may come from PDF, DOCX,
-  OCR, or transcript text, but opening it never exposes AppData. Cross-folder
+  XLSX worksheet text, OCR, or transcript text, but opening it never exposes AppData. Cross-folder
   results open read-only without unexpectedly switching an active folder.
 - Readiness distinguishes disabled, preparing, partial, paused, failed, and
   ready states. Exact search remains usable while AI Index is absent or
@@ -59,7 +59,8 @@ user-managed results.
   resumes after the allowance refreshes or an available BYOK source is
   selected.
 - In-app and MCP retrieval share source identity and access rules. MCP also
-  supports validated source-type categories.
+  supports validated source-type categories, including **Spreadsheets** for
+  `.xlsx` sources.
 
 ## Experience Contract
 

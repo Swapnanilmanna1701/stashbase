@@ -1012,7 +1012,7 @@ export function AgentView({
     if (ctx?.kind === 'derived') {
       return `- ${ctx.sourcePath} (for text context, use mcp__stashbase__read_file with path ${ctx.path}; it returns the derived text representation for this ${ctx.sourceFormat})`;
     }
-    if (ctx && !ctx.available && ['pdf', 'docx', 'audio'].includes(ctx.sourceFormat)) {
+    if (ctx && !ctx.available && ['pdf', 'docx', 'xlsx', 'audio'].includes(ctx.sourceFormat)) {
       return `- ${ctx.sourcePath} (derived text is not available yet; ${ctx.reason})`;
     }
     return `- ${att.path}`;

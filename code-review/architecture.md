@@ -78,7 +78,7 @@ subfolder prefix) narrows either call; `normalizeLibrarySearchScope` rejects a
 prefix outside the requested folder instead of silently widening and derives
 the owning member for a prefix-only scope. File-type category chips are
 agent-facing only (`shared/search-types.ts` defines and validates the
-`notes` / `pdf` / `image` / `docx` / `audio` vocabulary; `server/format.ts`
+`notes` / `pdf` / `image` / `docx` / `spreadsheets` / `audio` vocabulary; `server/format.ts`
 maps categories to source extensions). Scope and type narrowing compose; the
 semantic path filters daemon results back to `top_k`, the keyword path
 restricts ripgrep and the derived-text walk to the scoped subtree, and both

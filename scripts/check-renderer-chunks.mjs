@@ -22,6 +22,7 @@ const expectedEntries = [
   'src/components/json/JsonTreeView.tsx',
   'src/components/PdfPreview.tsx',
   'src/components/DocxPreview.tsx',
+  'src/components/XlsxPreview.tsx',
   'src/components/AudioPreview.tsx',
   'src/components/ManagedLibrarySearch.tsx',
   'src/components/ManagedQuickOpen.tsx',
@@ -33,6 +34,17 @@ const expectedEntries = [
   'src/components/SidebarAccountRow.tsx',
   'src/components/embedder/RequireApiKeyModal.tsx',
 ];
+
+const xlsxPackageRoot = path.join(repoRoot, 'node_modules', '@extend-ai', 'react-xlsx', 'dist');
+const xlsxControllerSource = fs.readFileSync(path.join(xlsxPackageRoot, 'index.js'), 'utf8');
+const xlsxWorkerSource = fs.readFileSync(path.join(xlsxPackageRoot, 'xlsx-worker.js'), 'utf8');
+if (
+  !xlsxControllerSource.includes('shouldAutoCalculate: false')
+  || xlsxWorkerSource.includes('safeCalculate(activeWorkbook')
+  || xlsxControllerSource.includes('window.open(externalTarget')
+) {
+  throw new Error('XLSX viewer dependency must keep formulas and external hyperlinks inert; verify the pinned pnpm patch');
+}
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
