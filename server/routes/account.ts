@@ -10,6 +10,7 @@ import {
   failHostedOAuth,
   finishHostedOAuth,
   hostedAccountState,
+  hostedAccountAvatar,
   hostedOAuthStatus,
   noteHostedOAuthAppReturn,
   noteHostedOAuthReturnIntent,
@@ -63,6 +64,21 @@ export function mount(app: express.Express, { appReturnToken }: AccountRouteOpti
   app.get('/api/account', async (req, res) => {
     const refresh = req.query.refresh === '1';
     res.json(await hostedAccountState(refresh));
+  });
+
+  app.get('/api/account/avatar', async (_req, res) => {
+    try {
+      const avatar = await hostedAccountAvatar();
+      if (!avatar) return res.status(404).end();
+      res.setHeader('content-type', avatar.contentType);
+      res.setHeader('cache-control', 'private, no-store');
+      res.setHeader('x-content-type-options', 'nosniff');
+      res.end(Buffer.from(avatar.bytes));
+    } catch {
+      // Avatar display is optional. Fail closed to the renderer fallback
+      // without exposing provider URLs or upstream diagnostics.
+      res.status(404).end();
+    }
   });
 
   app.post('/api/account/oauth/start', (req, res) => {

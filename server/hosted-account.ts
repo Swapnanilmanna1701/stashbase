@@ -28,8 +28,18 @@ export interface HostedAccountState {
   signedIn: boolean;
   active: boolean;
   email?: string;
+  displayName?: string;
+  /** Same-origin renderer endpoint; the provider URL remains Node-only. */
+  avatarUrl?: string;
   quota?: HostedQuota;
   quotaUnavailable?: boolean;
+}
+
+interface SupabaseUser {
+  id?: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+  identities?: Array<{ provider?: string; identity_data?: Record<string, unknown> }>;
 }
 
 interface SupabaseTokenResponse {
@@ -37,7 +47,7 @@ interface SupabaseTokenResponse {
   refresh_token?: string;
   expires_at?: number;
   expires_in?: number;
-  user?: { id?: string; email?: string };
+  user?: SupabaseUser;
   error?: string;
   error_description?: string;
   msg?: string;
@@ -84,6 +94,14 @@ let quotaRefreshTimer: NodeJS.Timeout | null = null;
 let onQuotaAvailable: (() => void | Promise<void>) | null = null;
 let quotaAvailabilityRecovery: Promise<void> = Promise.resolve();
 let tokenRefresh: { sessionKey: string; promise: Promise<string> } | null = null;
+let profileHydration: { sessionKey: string; attemptedAt: number; promise: Promise<void> } | null = null;
+const PROFILE_HYDRATION_RETRY_MS = 5 * 60 * 1000;
+const PROFILE_TIMEOUT_MS = 3_000;
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const AVATAR_TIMEOUT_MS = 5_000;
+const AVATAR_MAX_REDIRECTS = 2;
+const AVATAR_CONTENT_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
+let avatarCache: { key: string; contentType: string; bytes: Uint8Array } | null = null;
 
 function messageOf(value: ErrorPayload | null, fallback: string): string {
   return value?.message ?? value?.error_description ?? value?.msg ?? value?.error ?? fallback;
@@ -91,6 +109,34 @@ function messageOf(value: ErrorPayload | null, fallback: string): string {
 
 async function jsonBody<T>(response: Response): Promise<T | null> {
   try { return await response.json() as T; } catch { return null; }
+}
+
+export function normalizedGoogleProfile(user: SupabaseUser | undefined): Pick<HostedAccountSession, 'displayName' | 'avatarUrl'> {
+  const metadata = user?.user_metadata;
+  const identity = user?.identities?.find((candidate) => candidate.provider === 'google')?.identity_data;
+  const normalizeName = (value: unknown): string | undefined => {
+    const normalized = typeof value === 'string'
+      ? value.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().replace(/\s+/gu, ' ')
+      : '';
+    return normalized ? Array.from(normalized).slice(0, 200).join('') : undefined;
+  };
+  const normalizeAvatar = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === 'https:' && parsed.hostname === 'lh3.googleusercontent.com'
+        && !parsed.username && !parsed.password) return parsed.toString();
+    } catch { /* try the next provider candidate */ }
+    return undefined;
+  };
+  const displayName = [metadata?.full_name, metadata?.name, identity?.full_name, identity?.name]
+    .map(normalizeName).find((value) => value !== undefined);
+  const avatarUrl = [metadata?.avatar_url, metadata?.picture, identity?.avatar_url, identity?.picture]
+    .map(normalizeAvatar).find((value) => value !== undefined);
+  return {
+    ...(displayName ? { displayName } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+  };
 }
 
 function sessionFrom(value: SupabaseTokenResponse, fallback?: HostedAccountSession): HostedAccountSession {
@@ -102,7 +148,12 @@ function sessionFrom(value: SupabaseTokenResponse, fallback?: HostedAccountSessi
   if (!accessToken || !refreshToken || !userId || !email || !expiresAt) {
     throw new Error('Supabase returned an incomplete login session.');
   }
-  return { accessToken, refreshToken, userId, email, expiresAt };
+  const profile = normalizedGoogleProfile(value.user);
+  return {
+    accessToken, refreshToken, userId, email, expiresAt,
+    ...(profile.displayName ? { displayName: profile.displayName } : fallback?.displayName ? { displayName: fallback.displayName } : {}),
+    ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : fallback?.avatarUrl ? { avatarUrl: fallback.avatarUrl } : {}),
+  };
 }
 
 async function supabaseAuth(path: string, body: Record<string, unknown>, accessToken?: string): Promise<SupabaseTokenResponse> {
@@ -118,6 +169,22 @@ async function supabaseAuth(path: string, body: Record<string, unknown>, accessT
   const payload = await jsonBody<SupabaseTokenResponse>(response);
   if (!response.ok) throw new Error(messageOf(payload ?? null, `Supabase authentication failed (HTTP ${response.status}).`));
   return payload ?? {};
+}
+
+async function supabaseUser(accessToken: string): Promise<SupabaseUser> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROFILE_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}` },
+      signal: controller.signal,
+    });
+    const payload = await jsonBody<SupabaseUser & ErrorPayload>(response);
+    if (!response.ok) throw new Error(messageOf(payload, `Supabase profile lookup failed (HTTP ${response.status}).`));
+    return payload ?? {};
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function base64Url(bytes: Buffer): string {
@@ -304,8 +371,94 @@ export async function signOutHostedAccount(): Promise<void> {
   const session = getHostedAccountSession();
   clearHostedQuota();
   setHostedAccountSession(undefined);
+  avatarCache = null;
+  profileHydration = null;
   if (!session) return;
   try { await supabaseAuth('/logout?scope=local', {}, session.accessToken); } catch { /* local sign-out still succeeds */ }
+}
+
+async function hydrateHostedProfile(session: HostedAccountSession): Promise<void> {
+  if (session.displayName && session.avatarUrl) return;
+  const sessionKey = `${session.userId}\0${session.accessToken}`;
+  const now = Date.now();
+  if (profileHydration?.sessionKey === sessionKey) {
+    if (now - profileHydration.attemptedAt < PROFILE_HYDRATION_RETRY_MS) return profileHydration.promise;
+  }
+  const promise = (async () => {
+    const user = await supabaseUser(session.accessToken);
+    const profile = normalizedGoogleProfile(user);
+    if (!profile.displayName && !profile.avatarUrl) return;
+    const current = getHostedAccountSession();
+    if (!current || current.userId !== session.userId || current.accessToken !== session.accessToken) return;
+    setHostedAccountSession({
+      ...current,
+      ...(profile.displayName ? { displayName: profile.displayName } : {}),
+      ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
+    });
+  })();
+  profileHydration = { sessionKey, attemptedAt: now, promise };
+  return promise;
+}
+
+function assertAvatarUrl(value: string): URL {
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || url.hostname !== 'lh3.googleusercontent.com'
+    || url.username || url.password) throw new Error('Account avatar URL is not allowed.');
+  return url;
+}
+
+/** Fetch the signed-in account's provider avatar without exposing a general
+ * URL proxy. Redirects stay on the exact allowlisted HTTPS host; bodies are
+ * type-, time-, and size-bounded before entering the renderer boundary. */
+export async function hostedAccountAvatar(): Promise<{ contentType: string; bytes: Uint8Array } | null> {
+  const session = getHostedAccountSession();
+  if (!session?.avatarUrl) return null;
+  const key = `${session.userId}\0${session.avatarUrl}`;
+  if (avatarCache?.key === key) return { contentType: avatarCache.contentType, bytes: avatarCache.bytes };
+  let url = assertAvatarUrl(session.avatarUrl);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AVATAR_TIMEOUT_MS);
+  try {
+    let response: Response | null = null;
+    for (let redirects = 0; redirects <= AVATAR_MAX_REDIRECTS; redirects++) {
+      response = await fetch(url, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: { accept: 'image/avif,image/webp,image/png,image/jpeg' },
+      });
+      if (![301, 302, 303, 307, 308].includes(response.status)) break;
+      if (redirects === AVATAR_MAX_REDIRECTS) throw new Error('Account avatar redirected too many times.');
+      const location = response.headers.get('location');
+      if (!location) throw new Error('Account avatar redirect was incomplete.');
+      url = assertAvatarUrl(new URL(location, url).toString());
+    }
+    if (!response?.ok) throw new Error(`Account avatar failed (HTTP ${response?.status ?? 0}).`);
+    const contentType = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase() ?? '';
+    if (!AVATAR_CONTENT_TYPES.has(contentType)) throw new Error('Account avatar returned an unsupported content type.');
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > AVATAR_MAX_BYTES) throw new Error('Account avatar is too large.');
+    if (!response.body) throw new Error('Account avatar returned no content.');
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > AVATAR_MAX_BYTES) {
+        await reader.cancel();
+        throw new Error('Account avatar is too large.');
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    avatarCache = { key, contentType, bytes };
+    return { contentType, bytes };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchHostedQuota(options: { forceRefreshToken?: boolean } = {}): Promise<HostedQuota> {
@@ -372,8 +525,12 @@ export function setHostedQuotaAvailableHandler(handler: (() => void | Promise<vo
 }
 
 export async function hostedAccountState(refreshQuota = false): Promise<HostedAccountState> {
-  const session = getHostedAccountSession();
+  let session = getHostedAccountSession();
   if (!session) return { signedIn: false, active: false };
+  try {
+    await hydrateHostedProfile(session);
+    session = getHostedAccountSession() ?? session;
+  } catch { /* profile display data never gates account or local workflows */ }
   let quota = lastQuota;
   let quotaUnavailable = false;
   if (refreshQuota || !quota) {
@@ -388,6 +545,8 @@ export async function hostedAccountState(refreshQuota = false): Promise<HostedAc
     signedIn: true,
     active: getEmbeddingSource() === 'stashbase-account',
     email: session.email,
+    ...(session.displayName ? { displayName: session.displayName } : {}),
+    ...(session.avatarUrl ? { avatarUrl: '/api/account/avatar' } : {}),
     ...(quota ? { quota } : {}),
     ...(quotaUnavailable ? { quotaUnavailable: true } : {}),
   };

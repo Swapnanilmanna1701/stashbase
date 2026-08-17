@@ -43,6 +43,15 @@ access surface external clients copy from.
 - Account access and refresh tokens are Node-only configuration. They never
   cross renderer HTTP responses or the Node/Python boundary; Python receives a
   random per-process loopback bearer credential instead.
+- Google display name and avatar URL are optional display-only session fields.
+  Refreshes and legacy-session hydration preserve known valid values when
+  provider metadata is absent or unavailable; sign-out clears them with the
+  session. They never affect authorization, quota ownership, or embedding
+  source selection, and raw provider metadata never crosses the account API.
+- Renderer avatar URLs are same-origin. Node accepts only HTTPS Google profile
+  images from the exact allowed host and bounds redirects, time, bytes, and
+  raster content type; failure remains an ordinary initials/icon fallback and
+  never becomes a general URL proxy or account failure.
 - Refresh demand for one account session is single-flight. A refresh may
   update or clear only the exact session it started from; a stale completion
   cannot overwrite or sign out a newer session.
@@ -82,10 +91,10 @@ access surface external clients copy from.
 | Persistent Interface | strict/fallback read and write plus domain getters/setters in `server/app-config.ts` |
 | Domain owners | `server/mcp-http-settings.ts`, `server/hosted-account.ts`, `server/hosted-embedding-broker.ts`, embedding and transcription configuration Modules |
 | HTTP Adapters | `server/routes/appearance.ts`, `capture.ts`, `onboarding.ts`, `account.ts`, `embedder.ts`, `transcription.ts`, `mcp.ts` |
-| Renderer Adapters | `web-src/src/components/SettingsModal.tsx`, `components/settings/GeneralPanel.tsx`, `AppearancePanel.tsx`, `EmbeddingPanel.tsx`, `TranscriptionPanel.tsx`, `McpAccessPanel.tsx`, `AgentRuntimePanel.tsx` |
+| Renderer Adapters | `web-src/src/components/SidebarAccountRow.tsx`, `components/account/AccountIdentity.tsx`, `SettingsModal.tsx`, `components/settings/GeneralPanel.tsx`, `AppearancePanel.tsx`, `EmbeddingPanel.tsx`, `TranscriptionPanel.tsx`, `McpAccessPanel.tsx`, `AgentRuntimePanel.tsx` |
 | Capture runtime Adapter | `web-src/src/hooks/useClipboardImageOffer.ts`, `electron/preload.cjs`, and the clipboard boundary in `electron/main.cjs` |
 | Appearance Adapter | `web-src/src/appearance.ts` |
-| Focused evidence | `server/app-config.test.ts`, `server/hosted-account.test.ts`, `server/__tests__/mcp-http-settings.test.ts`, `electron/clipboard-watch-policy.test.cjs`, `web-src/src/__tests__/appearance.test.ts`, `web-src/src/__tests__/embedding-auth.test.ts`, `e2e/smoke/settings.spec.ts`, and J04 in `e2e/journeys/preparation-capture.spec.ts` |
+| Focused evidence | `server/app-config.test.ts`, `server/hosted-account.test.ts`, `server/__tests__/mcp-http-settings.test.ts`, `electron/clipboard-watch-policy.test.cjs`, renderer account/appearance/embedding tests, `e2e/smoke/settings.spec.ts`, and J04 in `e2e/journeys/preparation-capture.spec.ts` |
 
 ## Validation
 

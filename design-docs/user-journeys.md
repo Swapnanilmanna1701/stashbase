@@ -76,6 +76,10 @@ folder. No account, AI Index source, active folder, or Agent runtime is assumed.
 - Returning users recognize their library and completed durable setup without
   replaying first-use explanation or losing access when an optional online
   capability is unavailable.
+- When a user chooses Google sign-in for hosted AI Index, the sidebar, account
+  menu, and Settings consistently identify the connected person by optional
+  provider profile data plus the full email, without making profile loading a
+  prerequisite for local or hosted work.
 
 ### Degradation and Recovery
 

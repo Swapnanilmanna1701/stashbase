@@ -29,6 +29,10 @@ manager, or a primary graph-navigation tool.
   making sign-in a condition of local work. With no active folder, the
   workspace distinguishes an empty library from an existing library awaiting
   selection.
+- A signed-in account is recognizable by its Google display name and avatar in
+  Files, with the full email retained in the account menu. Missing or failed
+  profile display data falls back without changing account controls; signed
+  out remains the complete Anonymous local-workspace state.
 - Users can open or create a local folder, switch folders in place, favorite a
   member, open it in another window, sync it, or remove it from the library.
   A created folder is an ordinary directory. Removing membership clears only

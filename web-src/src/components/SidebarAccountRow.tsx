@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { electronBridge } from '../electronBridge';
-import { BugIcon, DiscordIcon, ExternalLinkIcon, SettingsIcon, UserIcon } from '../icons';
+import { BugIcon, DiscordIcon, ExternalLinkIcon, SettingsIcon } from '../icons';
 import { api, errorMessage, type HostedAccountState } from '../api';
 import { ACCOUNT_CHANGED_EVENT, notifyAccountChanged } from '../accountEvents';
 import { signInWithStashBase } from '../accountOAuth';
@@ -8,6 +8,7 @@ import { DISCORD_INVITE_URL, openExternalUrl } from '../lib/externalLink';
 import { openSettings } from './SettingsModal';
 import { hostedQuotaRemainingPercent, hostedQuotaResetLabel } from '../lib/hostedQuota';
 import { Button } from './ui/button';
+import { AccountAvatar, accountDisplayLabel } from './account/AccountIdentity';
 import {
   Menu as AccountMenu,
   MenuItem,
@@ -40,8 +41,8 @@ export function SidebarAccountRow() {
   }, []);
 
   const email = account?.signedIn ? account.email ?? '' : '';
-  const label = email || 'Anonymous';
-  const monogram = email ? email.slice(0, 2).toUpperCase() : '';
+  const label = account?.signedIn ? accountDisplayLabel(account) : 'Anonymous';
+  const accountAccessibleLabel = account?.signedIn && email && label !== email ? `${label} (${email})` : label;
   const quota = account?.quota;
   const remainingPercent = quota ? hostedQuotaRemainingPercent(quota) : null;
 
@@ -69,14 +70,9 @@ export function SidebarAccountRow() {
         <MenuTrigger
           className="group/account flex min-h-7 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 text-left text-base text-muted-foreground hover:text-foreground"
           title="Account"
-          aria-label={`Account: ${label}`}
+          aria-label={`Account: ${accountAccessibleLabel}`}
         >
-          <span className="relative inline-flex size-4 flex-none items-center justify-center">
-            <span className="absolute inset-[-3px] rounded-full bg-muted" aria-hidden="true" />
-            {monogram
-              ? <span className="relative text-2xs font-semibold text-foreground">{monogram}</span>
-              : <UserIcon className="relative size-3.5" />}
-          </span>
+          <AccountAvatar account={account ?? { signedIn: false, active: false }} className="size-4" initialsClassName="text-2xs" />
           <span className={`min-w-0 truncate transition-colors ${email ? 'text-muted-foreground' : 'text-placeholder group-hover/account:text-muted-foreground'}`}>
             {label}
           </span>
@@ -87,10 +83,10 @@ export function SidebarAccountRow() {
               {account?.signedIn ? (
                 <>
                   <div className="flex items-center gap-2.5 px-4 py-3">
-                    <span className="flex size-8 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">{monogram}</span>
+                    <AccountAvatar account={account} />
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold">{email.split('@')[0]}</div>
-                      <div className="truncate text-xs text-muted-foreground">{email}</div>
+                      <div className="truncate text-sm font-semibold">{label}</div>
+                      {label !== email && <div className="truncate text-xs text-muted-foreground">{email}</div>}
                     </div>
                   </div>
                   <MenuSeparator className="m-0" />

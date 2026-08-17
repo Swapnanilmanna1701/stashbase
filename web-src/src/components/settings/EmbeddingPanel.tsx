@@ -17,6 +17,7 @@ import { SegmentedControl, SegmentedControlItem } from '../ui/segmented-control'
 import { AccountSignInForm } from '../account/AccountSignInForm';
 import { notifyAccountChanged } from '../../accountEvents';
 import { hostedQuotaRemainingPercent, hostedQuotaResetLabel } from '../../lib/hostedQuota';
+import { AccountAvatar, accountDisplayLabel } from '../account/AccountIdentity';
 
 const PROVIDERS: Record<EmbedderProvider, { label: string; model: string; placeholder: string; costHint: string }> = {
   openai: {
@@ -191,9 +192,15 @@ export function EmbeddingPanel() {
           {showingHostedSummary && (
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-base font-semibold">{state.account.email}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Using the StashBase account allowance</div>
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <AccountAvatar account={state.account} />
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-semibold">{accountDisplayLabel(state.account)}</div>
+                    {state.account.displayName && state.account.email && (
+                      <div className="truncate text-xs text-muted-foreground">{state.account.email}</div>
+                    )}
+                    <div className="mt-0.5 text-xs text-muted-foreground">Using the StashBase account allowance</div>
+                  </div>
                 </div>
                 {state.account.quota && (
                   <div className="text-right">
@@ -235,9 +242,13 @@ export function EmbeddingPanel() {
           )}
           {state.account.signedIn && !hostedActive && !signInFormOpen && (
             <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">Signed in as {state.account.email}</div>
-                <div className="text-xs text-muted-foreground">Your own API key is currently active.</div>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <AccountAvatar account={state.account} />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium">Signed in as {accountDisplayLabel(state.account)}</div>
+                  {state.account.displayName && state.account.email && <div className="truncate text-xs text-muted-foreground">{state.account.email}</div>}
+                  <div className="text-xs text-muted-foreground">Your own API key is currently active.</div>
+                </div>
               </div>
               <Button
                 variant="outline"

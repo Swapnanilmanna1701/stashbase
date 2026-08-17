@@ -68,6 +68,10 @@ export interface HostedAccountSession {
   expiresAt: number;
   userId: string;
   email: string;
+  /** Optional display-only Google profile fields. They never participate in
+   * authentication, authorization, quota ownership, or source selection. */
+  displayName?: string;
+  avatarUrl?: string;
 }
 
 const EMBEDDER_DEFAULTS: Record<EmbedderProvider, Omit<EmbedderConfig, 'provider' | 'apiKey'>> = {
@@ -266,7 +270,36 @@ export function getHostedAccountSession(): HostedAccountSession | undefined {
     typeof raw.userId !== 'string' || !raw.userId ||
     typeof raw.email !== 'string' || !raw.email
   ) return undefined;
-  return { ...raw };
+  const normalizedDisplayName = typeof raw.displayName === 'string'
+    ? raw.displayName.replace(/[\p{Cc}\p{Cf}]/gu, '').trim().replace(/\s+/gu, ' ')
+    : '';
+  const displayName = normalizedDisplayName
+    ? Array.from(normalizedDisplayName).slice(0, 200).join('')
+    : undefined;
+  const avatarUrl = typeof raw.avatarUrl === 'string' && isAllowedGoogleAvatarUrl(raw.avatarUrl)
+    ? raw.avatarUrl
+    : undefined;
+  // Select fields explicitly: malformed/legacy provider metadata and any
+  // future credentials must never hitchhike into the normalized session.
+  return {
+    accessToken: raw.accessToken,
+    refreshToken: raw.refreshToken,
+    expiresAt: raw.expiresAt,
+    userId: raw.userId,
+    email: raw.email,
+    ...(displayName ? { displayName } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+  };
+}
+
+function isAllowedGoogleAvatarUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === 'lh3.googleusercontent.com'
+      && !url.username && !url.password;
+  } catch {
+    return false;
+  }
 }
 
 export function setHostedAccountSession(session: HostedAccountSession | undefined): void {

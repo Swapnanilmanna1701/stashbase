@@ -111,7 +111,9 @@ test('OAuth PKCE session persists locally and authenticates quota requests', () 
       calls.push({ url: String(url), body: init.body ? JSON.parse(String(init.body)) : null, authorization: new Headers(init.headers).get('authorization') });
       if (String(url).endsWith('/auth/v1/token?grant_type=pkce')) return Response.json({
         access_token: 'access-1', refresh_token: 'refresh-1', expires_at: 4102444800,
-        user: { id: 'user-1', email: 'person@example.com' },
+        user: { id: 'user-1', email: 'person@example.com', user_metadata: {
+          full_name: 'Ada Lovelace', avatar_url: 'https://lh3.googleusercontent.com/a/profile-photo',
+        } },
       });
       if (String(url).endsWith('/v1/account/usage')) return Response.json({
         plan: 'free', grantedTokens: 1000000, usedTokens: 12, reservedTokens: 0,
@@ -148,7 +150,139 @@ test('OAuth PKCE session persists locally and authenticates quota requests', () 
   assert.equal(output.session.refreshToken, 'refresh-1');
   assert.equal(output.source, 'stashbase-account');
   assert.equal(output.state.email, 'person@example.com');
+  assert.equal(output.state.displayName, 'Ada Lovelace');
+  assert.equal(output.state.avatarUrl, '/api/account/avatar');
   assert.equal('userId' in output.state, false);
+  assert.equal('accessToken' in output.state, false);
+  assert.equal('refreshToken' in output.state, false);
+  assert.equal('user_metadata' in output.state, false);
+});
+
+test('Google profile normalization accepts display-safe metadata and rejects unsafe avatars', () => {
+  const result = runIsolated(`
+    const account = await import('./server/hosted-account.ts');
+    process.stdout.write(JSON.stringify({
+      safe: account.normalizedGoogleProfile({ user_metadata: {
+        name: '  Grace   Hopper  ', picture: 'https://lh3.googleusercontent.com/a/photo',
+      } }),
+      identity: account.normalizedGoogleProfile({ identities: [{ provider: 'google', identity_data: {
+        full_name: 'Katherine Johnson', avatar_url: 'https://lh3.googleusercontent.com/a/identity-photo',
+      } }] }),
+      invalidPrimary: account.normalizedGoogleProfile({
+        user_metadata: { full_name: ' \\u0000 ', avatar_url: 'http://not-allowed.example/avatar' },
+        identities: [{ provider: 'google', identity_data: {
+          full_name: 'Dorothy Vaughan', picture: 'https://lh3.googleusercontent.com/a/valid-fallback',
+        } }],
+      }),
+      unsafe: account.normalizedGoogleProfile({ user_metadata: {
+        full_name: 'Person', avatar_url: 'http://lh3.googleusercontent.com/a/photo', raw_provider_token: 'secret',
+      } }),
+    }));
+  `);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    safe: { displayName: 'Grace Hopper', avatarUrl: 'https://lh3.googleusercontent.com/a/photo' },
+    identity: { displayName: 'Katherine Johnson', avatarUrl: 'https://lh3.googleusercontent.com/a/identity-photo' },
+    invalidPrimary: { displayName: 'Dorothy Vaughan', avatarUrl: 'https://lh3.googleusercontent.com/a/valid-fallback' },
+    unsafe: { displayName: 'Person' },
+  });
+});
+
+test('a legacy session stays signed in when optional profile hydration fails', () => {
+  const result = runIsolated(`
+    globalThis.fetch = async () => { throw new Error('profile offline'); };
+    const config = await import('./server/app-config.ts');
+    const account = await import('./server/hosted-account.ts');
+    config.setHostedAccountSession({ accessToken: 'access', refreshToken: 'refresh', expiresAt: 4102444800, userId: 'user', email: 'legacy@example.com' });
+    const state = await account.hostedAccountState(false);
+    process.stdout.write(JSON.stringify({ state, session: config.getHostedAccountSession() }));
+  `);
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.state.signedIn, true);
+  assert.equal(output.state.email, 'legacy@example.com');
+  assert.equal(output.session.displayName, undefined);
+});
+
+test('a legacy session hydrates optional profile data without signing in again', () => {
+  const result = runIsolated(`
+    globalThis.fetch = async (url) => {
+      if (String(url).endsWith('/auth/v1/user')) return Response.json({
+        id: 'user', email: 'legacy@example.com',
+        user_metadata: { full_name: 'Legacy Person', picture: 'https://lh3.googleusercontent.com/a/legacy' },
+      });
+      return Response.json({ error: 'quota offline' }, { status: 503 });
+    };
+    const config = await import('./server/app-config.ts');
+    const account = await import('./server/hosted-account.ts');
+    config.setHostedAccountSession({ accessToken: 'access', refreshToken: 'refresh', expiresAt: 4102444800, userId: 'user', email: 'legacy@example.com' });
+    const state = await account.hostedAccountState(false);
+    process.stdout.write(JSON.stringify({ state, session: config.getHostedAccountSession() }));
+  `);
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.state.displayName, 'Legacy Person');
+  assert.equal(output.state.avatarUrl, '/api/account/avatar');
+  assert.equal(output.session.avatarUrl, 'https://lh3.googleusercontent.com/a/legacy');
+});
+
+test('avatar fetch is same-host, typed, bounded, and cached', () => {
+  const result = runIsolated(`
+    let calls = 0;
+    globalThis.fetch = async (url) => {
+      calls += 1;
+      if (!String(url).startsWith('https://lh3.googleusercontent.com/')) throw new Error('unexpected host');
+      return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/png', 'content-length': '3' } });
+    };
+    const config = await import('./server/app-config.ts');
+    const account = await import('./server/hosted-account.ts');
+    config.setHostedAccountSession({
+      accessToken: 'access', refreshToken: 'refresh', expiresAt: 4102444800,
+      userId: 'user', email: 'person@example.com', avatarUrl: 'https://lh3.googleusercontent.com/a/photo',
+    });
+    const first = await account.hostedAccountAvatar();
+    const second = await account.hostedAccountAvatar();
+    process.stdout.write(JSON.stringify({ calls, contentType: first.contentType, bytes: [...first.bytes], same: first.bytes === second.bytes }));
+  `);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { calls: 1, contentType: 'image/png', bytes: [1, 2, 3], same: true });
+});
+
+test('avatar fetch rejects oversized or incorrectly typed provider responses', () => {
+  const result = runIsolated(`
+    const config = await import('./server/app-config.ts');
+    const account = await import('./server/hosted-account.ts');
+    config.setHostedAccountSession({
+      accessToken: 'access', refreshToken: 'refresh', expiresAt: 4102444800,
+      userId: 'user', email: 'person@example.com', avatarUrl: 'https://lh3.googleusercontent.com/a/photo',
+    });
+    globalThis.fetch = async () => new Response('not an image', { headers: { 'content-type': 'text/html' } });
+    const wrongType = await account.hostedAccountAvatar().then(() => null, (error) => error.message);
+    globalThis.fetch = async () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'image/png', 'content-length': String(2 * 1024 * 1024 + 1) } });
+    const oversized = await account.hostedAccountAvatar().then(() => null, (error) => error.message);
+    process.stdout.write(JSON.stringify({ wrongType, oversized }));
+  `);
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.match(output.wrongType, /unsupported content type/u);
+  assert.match(output.oversized, /too large/u);
+});
+
+test('sign out clears display profile data with the local session', () => {
+  const result = runIsolated(`
+    globalThis.fetch = async () => Response.json({});
+    const config = await import('./server/app-config.ts');
+    const account = await import('./server/hosted-account.ts');
+    config.setHostedAccountSession({
+      accessToken: 'access', refreshToken: 'refresh', expiresAt: 4102444800,
+      userId: 'user', email: 'person@example.com', displayName: 'Person',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/photo',
+    });
+    await account.signOutHostedAccount();
+    process.stdout.write(JSON.stringify({ session: config.getHostedAccountSession() ?? null, state: await account.hostedAccountState() }));
+  `);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { session: null, state: { signedIn: false, active: false } });
 });
 
 test('loopback broker translates OpenAI requests and preserves query purpose', () => {
@@ -264,7 +398,11 @@ test('concurrent hosted token refreshes share one request', () => {
     };
     const config = await import('./server/app-config.ts');
     const account = await import('./server/hosted-account.ts');
-    config.setHostedAccountSession({ accessToken: 'access-old', refreshToken: 'refresh-old', expiresAt: 1, userId: 'user', email: 'person@example.com' });
+    config.setHostedAccountSession({
+      accessToken: 'access-old', refreshToken: 'refresh-old', expiresAt: 1,
+      userId: 'user', email: 'person@example.com', displayName: 'Existing Person',
+      avatarUrl: 'https://lh3.googleusercontent.com/a/existing',
+    });
     const tokens = await Promise.all([account.hostedAccessToken(), account.hostedAccessToken(), account.hostedAccessToken({ forceRefresh: true })]);
     process.stdout.write(JSON.stringify({ refreshCalls, tokens, session: config.getHostedAccountSession() }));
   `);
@@ -273,6 +411,8 @@ test('concurrent hosted token refreshes share one request', () => {
   assert.equal(output.refreshCalls, 1);
   assert.deepEqual(output.tokens, ['access-new', 'access-new', 'access-new']);
   assert.equal(output.session.refreshToken, 'refresh-new');
+  assert.equal(output.session.displayName, 'Existing Person');
+  assert.equal(output.session.avatarUrl, 'https://lh3.googleusercontent.com/a/existing');
 });
 
 test('a stale failed refresh cannot clear a newer hosted session', () => {

@@ -51,11 +51,13 @@ user-managed results.
   observable setup sequence lives in
   [J01](../user-journeys.md#j01-complete-onboarding-and-reach-first-value).
 - Hosted indexing and meaning-based queries draw from one token allowance.
-  The account menu shows identity, remaining percentage, and reset date. When
-  the allowance is exhausted, hosted semantic work stops while Exact search
-  and every local-file workflow remain available. Pending semantic work
-  resumes after the allowance refreshes or an available BYOK source is
-  selected.
+  The account menu and AI Index Settings show the provider display name and
+  avatar when available, retain the full email for account identification, and
+  share deterministic fallbacks. They also show remaining percentage and reset
+  date. When the allowance is exhausted, hosted semantic work stops while
+  Exact search and every local-file workflow remain available. Pending
+  semantic work resumes after the allowance refreshes or an available BYOK
+  source is selected.
 - In-app and MCP retrieval share source identity and access rules. MCP also
   supports validated source-type categories.
 

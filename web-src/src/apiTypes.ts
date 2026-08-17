@@ -314,6 +314,8 @@ export interface HostedAccountState {
   signedIn: boolean;
   active: boolean;
   email?: string;
+  displayName?: string;
+  avatarUrl?: string;
   quota?: HostedQuota;
   quotaUnavailable?: boolean;
   backfillStarted?: boolean;

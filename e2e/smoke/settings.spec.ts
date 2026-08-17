@@ -51,6 +51,59 @@ test('user can navigate Settings and persist appearance across relaunch', async 
   }
 });
 
+test('signed-in Google identity is consistent in the sidebar, account menu, and AI Index Settings', async ({}, testInfo) => {
+  const fixture = await createAppFixture({ membership: 'empty' });
+  let app: LaunchedApp | undefined;
+  const account = {
+    signedIn: true,
+    active: true,
+    email: 'ada@example.com',
+    displayName: 'Ada Lovelace',
+    avatarUrl: '/api/account/avatar',
+    quota: {
+      plan: 'free', grantedTokens: 1_000, usedTokens: 100, reservedTokens: 0,
+      remainingTokens: 900, periodStartedAt: null, periodEndsAt: null,
+    },
+  };
+  try {
+    app = await launchApp(fixture, testInfo);
+    await app.page.route('**/api/account*', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(account) });
+    });
+    await app.page.route('**/api/account/avatar', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/png',
+        body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+      });
+    });
+    await app.page.route('**/api/embedder', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        provider: 'openai', hasKey: false, authorized: true, source: 'stashbase-account',
+        model: 'fixture-model', account,
+      }) });
+    });
+    await app.page.evaluate(() => window.dispatchEvent(new CustomEvent('stashbase-account-changed')));
+
+    const accountButton = app.page.getByRole('button', { name: 'Account: Ada Lovelace (ada@example.com)' });
+    await expect(accountButton).toBeVisible();
+    await expect(accountButton).toContainText('Ada Lovelace');
+    await accountButton.click();
+    await expect(app.page.getByText('ada@example.com', { exact: true })).toBeVisible();
+    await expect(app.page.getByText('Remaining usage', { exact: true })).toBeVisible();
+    await app.page.keyboard.press('Escape');
+
+    await settingsButton(app.page).click();
+    await settingsTab(app.page, 'AI Index').click();
+    await expect(settingsDialog(app.page)).toContainText('Ada Lovelace');
+    await expect(settingsDialog(app.page)).toContainText('ada@example.com');
+    app.errors.assertNone();
+  } finally {
+    await app?.close();
+    await fixture.cleanup();
+  }
+});
+
 test('clipboard screenshot offers are default-off and require an explicit General setting', async ({}, testInfo) => {
   const fixture = await createAppFixture({ membership: 'one-folder' });
   let app: LaunchedApp | undefined;

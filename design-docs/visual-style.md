@@ -55,6 +55,10 @@ type is carried primarily by shape and label rather than a rainbow of colors.
   create a new corner language.
 - Circles and capsules are reserved for semantics that need them, such as
   identity, status, or a terminal action.
+- A person avatar keeps one stable circular footprint while remote content
+  loads or fails. Its fallback order is provider image, display-name initials,
+  email initials, then the generic person icon; decorative avatar content does
+  not repeat adjacent identity text to assistive technology.
 - List hover and selection are quiet inset surfaces. Accent feedback is
   reserved for states that must be unmistakable, such as an active drop target.
 - Sibling controls align to shared grid lines. Empty states use one deliberate
