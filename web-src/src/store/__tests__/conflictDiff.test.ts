@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildConflictMarkerDraft, computeLineDiff } from '../conflictDiff';
+import { buildConflictMarkerDraft, computeLineDiff } from '@/store/lib/conflictDiff';
 
 test('conflict comparison keeps common context and aligns the changed middle', () => {
   const rows = computeLineDiff(

@@ -14,6 +14,7 @@ Record one result per package/platform:
 
 - Tag and commit SHA:
 - CI run URL (successful for the exact commit):
+- Coordinated Release workflow URL:
 - Package/asset name and source:
 - Platform and OS version:
 - Tester and date:
@@ -34,6 +35,17 @@ reason when a platform cannot exercise it.
   Gatekeeper accepts the downloaded Developer ID-signed, notarized app without
   a security override; preserve the automated `codesign`, `spctl`, and stapler
   results with the release evidence.
+- [ ] **J01** — On each platform, start from the previous published version N,
+  point it at the ordinary stable release channel, and update to this candidate
+  N+1. Leave a harmless edit open, click **Update** once, and confirm download,
+  save-barrier handling, installation, automatic relaunch, the N+1 version, and
+  exactly one running instance. Exercise macOS from the installed DMG app,
+  Windows from NSIS, and Linux from AppImage; also exercise deb when it is a
+  supported distribution path and record the expected administrator prompt.
+  A unit-test updater double or a release-asset inventory is not evidence for
+  this item. Record the observed N and N+1 versions plus the installed asset
+  name; do not call the update path verified until every supported platform has
+  a real result.
 - [ ] **J02** — Use the real native folder picker: cancel once without changing the
   library, then add a disposable folder and confirm it opens.
 - [ ] **J02 / J06** — Drag a real OS file or folder onto each supported drop target and confirm

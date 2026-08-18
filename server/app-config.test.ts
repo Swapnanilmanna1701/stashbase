@@ -7,7 +7,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   createCapturePreferencesStore,
+  createUpdatePreferencesStore,
   normalizeCapturePreferences,
+  normalizeUpdatePreferences,
   type AppConfigFile,
 } from './app-config.ts';
 
@@ -26,6 +28,22 @@ test('clipboard image capture is default-off and persists only an explicit opt-i
   assert.deepEqual(store.get(), { clipboardImageImport: true });
   assert.deepEqual(normalizeCapturePreferences({ clipboardImageImport: 'yes' }), {
     clipboardImageImport: false,
+  });
+});
+
+test('desktop update checks are default-on and preserve unrelated config', () => {
+  let config: AppConfigFile = { appearance: { theme: 'dark' } };
+  const store = createUpdatePreferencesStore({
+    read: () => structuredClone(config),
+    write: (next) => { config = structuredClone(next); },
+  });
+
+  assert.deepEqual(store.get(), { autoCheck: true });
+  assert.deepEqual(store.set({ autoCheck: false }), { autoCheck: false });
+  assert.equal(config.appearance?.theme, 'dark');
+  assert.deepEqual(store.get(), { autoCheck: false });
+  assert.deepEqual(normalizeUpdatePreferences({ autoCheck: 'yes' }), {
+    autoCheck: true,
   });
 });
 

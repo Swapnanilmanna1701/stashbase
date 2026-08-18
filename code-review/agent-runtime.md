@@ -5,35 +5,78 @@
 
 ## Discovery and Preparation
 
-- App boot and folder navigation perform only cheap discovery and idempotent
-  MCP repair for already installed runtimes. They never install an Agent or run
+- App boot and folder navigation perform only cheap discovery, a bounded
+  side-effect-free Codex authentication check, and idempotent MCP repair for
+  already installed runtimes. They never install an Agent, start login, or run
   a login-shell probe.
 - New Chat opens readiness for the selected Agent but does not itself authorize
-  a download. Discovery prefers a supported system executable, then a managed
-  executable under AppData. If neither exists, the Agent gate waits for
-  **Install and continue** (or the explicit Settings install action) before
-  installing only that Agent's official runtime. Opening, switching, or
-  resuming a tab never installs another runtime as a side effect.
-- Managed runtimes never modify `PATH` and continue using the provider's normal
-  account and history home. Resetting a managed executable never clears login
-  or native history.
-- Settings offers Uninstall only for a StashBase-managed runtime, never for a
-  system executable. It stops that agent's sessions, resets preparation state,
-  and removes only the private install under AppData (the removal path-guards
-  to that root). Uninstall is disk reclamation, not deactivation: the next
-  explicit New Chat re-runs readiness.
-- Codex uses its official standalone installer in a private target. Its
-  installer process and immediate executable check share that isolated
-  installer environment. On Windows, installation prefers PowerShell 7 from
-  the inherited PATH or its standard Program Files location, then falls back
-  to Windows PowerShell; a known legacy-shell architecture failure names the
-  PowerShell 7 recovery instead of becoming a generic executable-check error.
-  Native sessions still use the provider's normal account and history home.
-  Claude uses its official release manifest, verifies size and SHA-256, and
-  publishes atomically. Disposable staging cleanup retries transient Windows
-  locks and never replaces the primary download or executable-check failure;
-  failed executable checks retain bounded timeout, exit-code, and stderr
-  diagnostics. Shutdown cancels preparation.
+  a download. Discovery prefers a supported system executable (including the
+  official user-level locations such as `~/.local/bin` and the official
+  Windows standalone bin), then a legacy managed executable under AppData.
+  If neither exists, the Agent gate waits for **Install and continue** (or
+  the explicit Settings install action) before installing only that Agent's
+  official runtime. Opening, switching, or resuming a tab never installs
+  another runtime as a side effect.
+- **Install and continue** runs the provider's official user-level installer —
+  the same command the install hint prints — so the installed CLI is usable
+  from the user's own terminal afterwards. The official installer owns its
+  standard install layout and the user's shell-profile `PATH` entry;
+  StashBase itself never edits shell profiles, never pins the install into a
+  private directory, and strips any stale private pinning inherited from
+  older versions before the installer runs. Installs continue using the
+  provider's normal account and history home, so terminal and StashBase
+  sessions share one login and one history. Legacy private installs under
+  AppData (from older StashBase versions) remain discovered and usable; they
+  never modified `PATH`.
+- Codex readiness checks the selected executable with `codex login status`.
+  A signed-out runtime is installed but not ready: it stops at the structured
+  authentication stage before MCP configuration. The explicit sign-in action
+  runs that exact executable's `codex login` browser flow with its normal
+  account home, never installs another copy, and never passes credentials
+  through StashBase. Success rechecks status and resumes MCP preparation;
+  cancellation, timeout, and native exit remain retryable authentication
+  failures. Claude continues to report authentication through its native SDK
+  connection.
+- Settings offers Uninstall only for a legacy StashBase-managed runtime under
+  AppData, never for a system executable — official user-level installs are
+  the user's own and are never removed by StashBase. Uninstall stops that
+  agent's sessions, resets preparation state, and removes only the private
+  install under AppData (the removal path-guards to that root). Uninstall is
+  disk reclamation, not deactivation: the next explicit New Chat re-runs
+  readiness.
+- Both installs fetch and run the provider's official installer script. On
+  Windows, installation prefers PowerShell 7 from the inherited PATH or its
+  standard Program Files location, then falls back to Windows PowerShell; a
+  known legacy-shell architecture failure names the PowerShell 7 recovery
+  instead of becoming a generic executable-check error. The downloaded
+  PowerShell installer runs from one temporary `.ps1` file rather than as a
+  statement stream or nested script, so a failed download, extraction, or
+  verification cannot be followed by a successful stdin statement or outer
+  script that masks the failure with exit code zero. A bootstrap inserted
+  after the official parameter declaration strips redirecting environment
+  (stale private pinning, the Electron node marker) and pins non-interactive
+  mode — it never assigns install paths. The Windows PowerShell child remains
+  attached so its close event cannot report success before the script host
+  completes; Windows cancellation still terminates the full tree through
+  `taskkill /T`. Temporary script cleanup never replaces that result.
+  Download status warns that the progress-silent package may take several
+  minutes, while any eventual installer stderr remains the primary failure.
+  Claude's official script checksum-verifies the release and runs the
+  binary's own `claude install`, which sets up the user-level launcher; its
+  POSIX form requires bash, so the Claude installer shell resolves to
+  `/bin/bash` where Codex uses `/bin/sh`.
+  System discovery checks the official user-level locations directly
+  (`~/.local/bin` on every platform, the official Windows standalone bin
+  under LocalAppData), so both a StashBase-run install and one completed
+  outside StashBase are visible even while the already-running desktop
+  process still has the previous user PATH. Legacy managed discovery accepts
+  the private bin, the installer's visible bin junction, its official
+  standalone `current` package layout, and a versioned release executable.
+  A successful installer exit without a discoverable executable in the
+  official locations is reported as missing output, never verified through a
+  fabricated path that can collapse into ENOENT; failed executable checks
+  retain bounded timeout, exit-code, and stderr diagnostics. Shutdown cancels
+  preparation.
 - Readiness configures the matching CLI's StashBase MCP entry through
   `ensureAgentMcp`, the only writer of the built-in agents' own config files.
   Native attach repeats that idempotent write immediately before process
@@ -41,24 +84,43 @@
   is part of readiness, and Settings surfaces a repair action only on
   failure.
 - Preparation is one staged Interface: discover, install only when missing,
-  then configure MCP. Its failure contract names `stage`, `code`, a bounded
-  message, retryability, and an optional manual recovery. Renderer code must
-  not classify failures by parsing messages. Installation failure may expose
-  the provider install command; MCP failure may expose the read-only manual MCP
-  setup, never an install command.
+  verify provider authentication where supported, then configure MCP. Its
+  failure contract names `stage`, `code`, a bounded message, retryability, and
+  an optional manual recovery. Renderer code must not classify failures by
+  parsing messages. Installation failure may expose the provider install
+  command; authentication offers the provider-owned in-app browser flow; MCP
+  failure may expose the read-only manual MCP setup, never an install command.
 - Retry calls the same preparation Interface. Fresh discovery skips a completed
-  installation, so an MCP retry rewrites only the idempotent MCP configuration;
-  no parallel repair state machine exists.
+  installation, authentication recovery reuses the selected executable, and an
+  MCP retry rewrites only the idempotent MCP configuration; no parallel repair
+  state machine exists.
+- Explicit recheck is narrower than Retry: it repeats fresh executable
+  discovery (including the deliberate shell probe) and configures MCP only when
+  a runtime now exists. A missing runtime preserves the prior failure and never
+  starts another download.
 - Development failure injection is one mutually exclusive, in-memory
   `nextFailure` value. It is consumed only when explicit readiness reaches that
   stage and immediately resets to normal; background startup repair never
   consumes it, and an installation injection stays pending when an existing
-  runtime skips installation. Settings presents these controls inside a
-  visually distinct development-only surface; production omits the surface.
-  Availability follows the general development-runtime marker and does not
-  depend on whether the renderer is served through Vite.
-- A discovery, installation, or MCP failure is visible and retryable but never
-  blocks the workspace or silently substitutes another Agent.
+  runtime skips installation. The authentication injection arms only the Codex
+  sign-in gate — never Claude, which has no login surface — and a completed
+  login is verified for real rather than consuming it. Settings presents these
+  controls inside a visually distinct development-only surface; production
+  omits the surface. Availability follows the general development-runtime
+  marker and does not depend on whether the renderer is served through Vite.
+- Development turn failure injection is a separate one-shot `nextTurnFailure`
+  value consumed by the next prompt of any live session, in either runtime.
+  The adapter plays a scripted failure through its normal event path — a
+  turn-scoped error for rate-limit, quota, auth-expired, and network shapes, or
+  a session-ending exit for crash — and the prompt never reaches the native
+  runtime. Script messages are provider-shaped but always prefixed
+  `Simulated failure:` so a developer cannot mistake one for a live error.
+  Each non-fatal script classifies to its own turn-failure kind through the
+  live classifier, so an injected failure exercises exactly the recovery
+  presentation a real one gets; a pinning test fails if either side drifts.
+- A discovery, installation, authentication, or MCP failure is visible and
+  retryable but never blocks the workspace or silently substitutes another
+  Agent.
 
 ## Session Scope and Lifetime
 
@@ -114,6 +176,26 @@ assumed CLI versions.
 - Runtime errors settle only the matching active turn once. Retry-in-progress
   signals do not become permanent failures; repeated or late terminal events
   are ignored.
+- Turn-scoped runtime errors carry a structured failure kind — rate-limit,
+  quota, auth-expired, or network — classified once in the adapters through
+  the shared classifier; an unmatched message stays a plain error. The
+  renderer maps the kind to recovery copy and actions without parsing
+  messages, and every card carries a truthful action. Rate, network, and
+  quota failures clear on the provider side, so their Try again resends the
+  failed prompt on the live session. An expired sign-in offers Codex's
+  in-app browser sign-in (stashing the session id so the post-login
+  reconnect resumes the same native thread) or names Claude's terminal
+  `/login` steps with an in-place Reconnect — these two replace the
+  session's native process, because credentials are read at process start
+  and an external login is invisible to the running process until it is
+  replaced; never require an app restart for this. Acting on any recovery
+  settles its card to a plain message — a stale button must not outlive the
+  state it described — and auto-resends the failed prompt (immediately for
+  Try again, on session readiness for sign-in and Reconnect), so the
+  outcome is visible without retyping: an answer when the recovery stuck, a
+  fresh card when it did not. The armed retry is one-shot and cleared by
+  every other session reset. A turn failure never gates the panel and never
+  ends the session.
 - Skills are discovered and invoked through native capability paths. The
   runtime never exposes or concatenates skill-file contents into a prompt.
 
@@ -123,13 +205,14 @@ assumed CLI versions.
 |---|---|
 | Agent Interface | `AgentAdapter`, normalized client/server events, scope resolution, attach, and stop in `server/agent-contract.ts` |
 | Adapter registry | `server/agent-adapters.ts` |
+| Turn failure classification | `classifyAgentTurnFailure` in `server/agent-turn-failure.ts` over the shared kinds in `shared/agent-protocol.ts`; renderer recovery guidance in `web-src/src/features/agent-panel/lib/turnFailure.ts` |
 | Preparation Interface | `AgentBootstrapCoordinator` and its structured failure contract in `server/agent-runtime-installer.ts`; discovery and one-shot debug controls in `server/agent-cli.ts` and `server/agent-runtime-paths.ts` |
 | MCP wiring | `ensureAgentMcp` and the launcher writer in `server/agent-mcp.ts` |
 | Claude Adapter | `server/agent.ts` and its SDK/native-process helpers |
 | Codex Adapter | `server/codex-session-runtime.ts`, `codex-rpc-transport.ts`, `codex-protocol.ts`, and `codex-history.ts` |
 | Scope/history owners | `server/agent-session-registry.ts`, `agent-session-folders.ts`, `agent-projects.ts`, and session routes |
-| Renderer Adapter | `web-src/src/agentCatalog.tsx`, `components/agent/chatActivation.ts`, `components/agent/runtimeFailurePresentation.ts`, and [Agent Panel](agent-panel.md) |
-| Focused evidence | `server/__tests__/agent-contract.test.ts`, `agent-runtime-installer.test.ts`, `agent-projects.test.ts`, `codex-agent.test.ts`, `agent.test.ts`, and `e2e/fixtures/fake-codex-app-server.test.mjs`; J11 in `e2e/journeys/agent-workflows.spec.ts` proves the first post-rebind MCP write lands in the project |
+| Renderer Adapter | `web-src/src/common/lib/agentCatalog.ts`, the `activateChatTab` action in `web-src/src/store/contexts/AppContext.tsx`, `runtimeFailurePresentation.ts`, and [Agent Panel](agent-panel.md) |
+| Focused evidence | `server/__tests__/agent-contract.test.ts`, `agent-runtime-installer.test.ts`, `agent-turn-failure.test.ts`, `agent-projects.test.ts`, `codex-agent.test.ts`, `agent.test.ts`, and `e2e/fixtures/fake-codex-app-server.test.mjs`; J11 in `e2e/journeys/agent-workflows.spec.ts` proves the first post-rebind MCP write lands in the project |
 
 ## Validation
 

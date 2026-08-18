@@ -10,6 +10,12 @@ import readline from 'node:readline';
 import type { WebSocket } from 'ws';
 import { buildStashbasePreamble } from './agent-preamble.ts';
 import {
+  consumeAgentTurnFailure,
+  simulatedTurnFailureScript,
+  type AgentTurnFailureSimulation,
+} from './agent-runtime-paths.ts';
+import { agentTurnErrorEvent } from './agent-turn-failure.ts';
+import {
   disposeSessionsBoundToFolder,
   isAgentAccessMode,
   reportAgentRuntimeFailure,
@@ -367,6 +373,10 @@ export class CodexSession implements AttributedAgentSession {
       this.send({ t: 'error', message: 'Codex is already working on a turn.' });
       return;
     }
+    {
+      const simulated = consumeAgentTurnFailure();
+      if (simulated) { this.playSimulatedTurnFailure(simulated); return; }
+    }
 
     this.busy = true;
     this.pendingTerminalError = null;
@@ -425,11 +435,33 @@ export class CodexSession implements AttributedAgentSession {
       this.pendingTerminalError = null;
       if (!this.closed) {
         if (!(err instanceof CodexTurnCancelledError)) {
-          this.send({ t: 'error', message: errorMessage(err) });
+          this.sendTurnError(errorMessage(err));
         }
         this.send({ t: 'turn-end', isError: !(err instanceof CodexTurnCancelledError) });
       }
     }
+  }
+
+  /** Turn-scoped runtime errors carry their classified failure kind so the
+   * renderer can offer the matching recovery without parsing the message. */
+  private sendTurnError(message: string): void {
+    this.send(agentTurnErrorEvent(message));
+  }
+
+  /** Development-only: play the armed turn-failure script through the normal
+   * event path so the renderer exercises the real turn lifecycle. The prompt
+   * never reaches the app-server. */
+  private playSimulatedTurnFailure(kind: Exclude<AgentTurnFailureSimulation, 'none'>): void {
+    const script = simulatedTurnFailureScript(kind);
+    if (script.fatal) {
+      this.finish(script.message);
+      return;
+    }
+    this.busy = true;
+    this.send({ t: 'turn-start' });
+    this.busy = false;
+    this.sendTurnError(script.message);
+    this.send({ t: 'turn-end', isError: true });
   }
 
   /**
@@ -857,7 +889,7 @@ export class CodexSession implements AttributedAgentSession {
       message = 'Codex failed before completing the turn.';
     }
 
-    if (message) this.send({ t: 'error', message });
+    if (message) this.sendTurnError(message);
     this.settleActiveTurn(id, status === 'failed' || !!message);
   }
 
@@ -881,7 +913,7 @@ export class CodexSession implements AttributedAgentSession {
     }
 
     const message = notificationMessage(params) || 'Codex reported an error.';
-    this.send({ t: 'error', message });
+    this.sendTurnError(message);
     this.settleActiveTurn(turnId, true);
   }
 

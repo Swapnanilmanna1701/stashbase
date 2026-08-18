@@ -11,6 +11,7 @@ const windowId = windowIdFromArgv(process.argv);
 const contextReleaseHandlers = new Set();
 const folderRemovedHandlers = new Set();
 const libraryFolderAddedHandlers = new Set();
+const updateStateHandlers = new Set();
 
 ipcRenderer.on('window:prepare-context-release', async (_event, payload) => {
   if (!payload || typeof payload.requestId !== 'string') return;
@@ -36,6 +37,11 @@ ipcRenderer.on('window:folder-removed', (_event, folder) => {
 ipcRenderer.on('window:library-folder-added', (_event, folder) => {
   if (typeof folder !== 'string') return;
   for (const handler of libraryFolderAddedHandlers) handler(folder);
+});
+
+ipcRenderer.on('updates:state', (_event, state) => {
+  if (!state || typeof state !== 'object') return;
+  for (const handler of updateStateHandlers) handler(state);
 });
 
 // Mark the document as running under Electron so CSS can reserve room
@@ -122,6 +128,17 @@ contextBridge.exposeInMainWorld('electron', {
   },
   /** Refresh clipboard-image watching from the durable server setting. */
   refreshClipboardWatch: () => ipcRenderer.invoke('clipboard:refreshWatch'),
+  /** Main owns release discovery, verified downloads, and installation. */
+  getUpdateState: () => ipcRenderer.invoke('updates:getState'),
+  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  runUpdateAction: () => ipcRenderer.invoke('updates:primaryAction'),
+  openUpdateDownloadPage: () => ipcRenderer.invoke('updates:openDownloadPage'),
+  refreshUpdatePreference: () => ipcRenderer.invoke('updates:refreshPreference'),
+  setUpdateSimulation: (simulation) => ipcRenderer.invoke('updates:setSimulation', simulation),
+  onUpdateState: (handler) => {
+    updateStateHandlers.add(handler);
+    return () => updateStateHandlers.delete(handler);
+  },
   /** Tell main an offered clipboard image was handled so it isn't
    *  re-offered on the next focus. */
   markClipboardHandled: (hash) => ipcRenderer.send('clipboard:markHandled', hash),

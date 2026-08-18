@@ -28,11 +28,20 @@ manager, or a primary graph-navigation tool.
 - Files exposes Chat, the active folder tree, and account utilities without
   making sign-in a condition of local work. With no active folder, the
   workspace distinguishes an empty library from an existing library awaiting
-  selection.
+  selection, and claims neither while membership is still loading: the
+  empty-library invitation appears only once the library is confirmed empty,
+  never as a launch flash on a populated library.
 - A signed-in account is recognizable by its Google display name and avatar in
   Files, with the full email retained in the account menu. Missing or failed
   profile display data falls back without changing account controls; signed
   out remains the complete Anonymous local-workspace state.
+- Packaged builds check the official stable release channel when the default-on
+  preference permits it. An available update floats a dismissible announcement
+  above the account row with one explicit Update action; the Discord,
+  bug-report, and Settings utilities keep their places beneath it. Dismissing
+  hides that announcement only — a newer release, or a download becoming ready
+  to install, announces again, and Settings remains the standing update and
+  preference surface.
 - Users can open or create a local folder, switch folders in place, favorite a
   member, open it in another window, sync it, or remove it from the library.
   A created folder is an ordinary directory. Removing membership clears only
@@ -86,6 +95,12 @@ manager, or a primary graph-navigation tool.
 - Quick Open stays active-folder navigation. Command Palette exposes existing
   safe actions; neither surface becomes search, Agent permission, or hidden
   destructive automation.
+- Update discovery is quiet, dismissible, and never blocks local work. One
+  explicit Update action consents to download, installation, and relaunch;
+  every open renderer
+  crosses the normal save barrier before an installer may retire the
+  application. Linux package installs may also require system administrator
+  approval.
 
 ## Cross-area Seams
 

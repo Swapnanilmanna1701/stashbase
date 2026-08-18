@@ -70,3 +70,21 @@ function extensionAlternation(extensions: readonly string[]): string {
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+/**
+ * Directly readable text formats — the source file is itself the indexed
+ * and editable text.
+ */
+export type DirectTextFormat = 'md' | 'html' | 'json';
+
+/**
+ * Everything the renderer can open in the file tree: the direct text
+ * formats plus the convertible binaries (pdf, image, docx, audio) that are
+ * viewable but searched via AppData-derived text.
+ *
+ * Deliberately wider than `DirectTextFormat` so a convertible source cannot
+ * enter the direct-text path. This is the `format` field on the wire — the
+ * server's file listing emits it and the renderer routes tabs on it, so the
+ * two must agree value for value.
+ */
+export type ViewerFormat = DirectTextFormat | 'pdf' | 'image' | 'docx' | 'audio';

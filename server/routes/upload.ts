@@ -39,6 +39,7 @@ import { publishStagedImport, recoverInterruptedPublication } from '../import-pu
 import { queueConvertibleSource } from '../conversion-dispatch.ts';
 import { indexer } from '../state.ts';
 import { noteTreeChanged } from '../watcher.ts';
+import type { UploadResult } from '../../shared/library-files.ts';
 
 const log = logger('routes/upload');
 
@@ -299,7 +300,8 @@ async function processUploadedFiles(
     }
   }
   if (out.some((x) => !x.error)) noteTreeChanged();
-  res.json({ files: out });
+  const payload: UploadResult = { files: out };
+  res.json(payload);
   // Background indexing — don't await; the response has already been sent.
   if (isEmbeddingAvailable()) {
     (async () => {

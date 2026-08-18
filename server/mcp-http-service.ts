@@ -15,6 +15,9 @@ import {
   type McpHttpSettingsStore,
 } from './mcp-http-settings.ts';
 import { mount as mountMcpHttpTransport } from './routes/mcp-http.ts';
+import type { McpHttpStatus } from '../shared/mcp.ts';
+
+export type { McpHttpStatus } from '../shared/mcp.ts';
 
 const log = logger('mcp-http-service');
 
@@ -33,17 +36,6 @@ export interface DockerMcpListenerOptions {
 export type DockerMcpListenerFactory = (
   options: DockerMcpListenerOptions,
 ) => Promise<DockerMcpListener>;
-
-export interface McpHttpStatus {
-  loopbackUrl: string;
-  dockerUrl: string;
-  dockerPort: number;
-  token: string | null;
-  dockerAccess: boolean;
-  dockerActive: boolean;
-  dockerError?: string;
-  settingsError?: string;
-}
 
 export interface McpHttpService {
   mountLoopback(app: express.Express): void;

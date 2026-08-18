@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const ROOT = '/Users/bingwu/Projects/StashBase/stashbase';
 const ASSETS = path.join(ROOT, 'node_modules/@phosphor-icons/core/assets');
-const TARGET = path.join(ROOT, 'web-src/src/icons.tsx');
+const TARGET = path.join(ROOT, 'web-src/src/common/components/icons.tsx');
 
 // [export name, phosphor slug, weight, note, mirror?]
 const MAP = [
@@ -98,8 +98,9 @@ const header = `/**
  * package is a devDependency, and \`scripts/gen-icons.mjs\` regenerates this
  * file from it — edit the map there, not the paths here.
  *
- * Product brand marks (Claude, Codex, the StashBase cube) have no Phosphor
- * equivalent and stay hand-authored at the bottom.
+ * Product brand marks (Claude, Codex, the StashBase cube) and the two
+ * 16-box preparation status glyphs have no Phosphor equivalent and stay
+ * hand-authored at the bottom; the generator lifts them across verbatim.
  */
 
 import * as React from 'react';
@@ -132,7 +133,7 @@ export function ${name}({ className }: IconProps) {
 }`;
 }).join('\n');
 
-const brands = ['ClaudeIcon', 'CodexIcon', 'CubeLogoIcon'].map(lift).join('\n\n');
+const brands = ['ClaudeIcon', 'CodexIcon', 'CubeLogoIcon', 'CancelledIcon', 'WarningIcon'].map(lift).join('\n\n');
 
 fs.writeFileSync(TARGET, `${header}${bodies}\n\n${brands}\n`);
-console.log(`icons.tsx: ${MAP.length} Phosphor icons + 3 brand marks`);
+console.log(`icons.tsx: ${MAP.length} Phosphor icons + 5 hand-authored marks`);

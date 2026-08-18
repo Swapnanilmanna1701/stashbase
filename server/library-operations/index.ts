@@ -31,19 +31,18 @@ import {
   type Retrieval,
   type RetrievalMode,
 } from '../retrieval/index.ts';
-import type { IndexStatus, SearchHit } from '../indexer.ts';
+import type { IndexerStatus, SearchHit } from '../indexer.ts';
 import type { KeywordHitFile } from '../search-display.ts';
 import type { SyncResult } from '../sync.ts';
 import { LibraryOperationError } from './errors.ts';
 import type { SearchTypeCategory } from '../../shared/search-types.ts';
+import type { LibraryKeywordFile } from '../../shared/search-results.ts';
+
+export type { LibraryKeywordFile } from '../../shared/search-results.ts';
 
 export { LibraryOperationError } from './errors.ts';
 
 const log = logger('library-operations');
-
-/** One keyword-hit file: `folder` is the absolute member folder root and
- * `path` is folder-relative, mirroring the per-folder keyword payload. */
-export type LibraryKeywordFile = KeywordHitFile & { folder: string };
 
 export interface LibraryOperations {
   info(): Promise<LibraryInfo>;
@@ -89,7 +88,7 @@ export interface LibraryOperationsDependencies {
   normalizeSearchScope: typeof normalizeLibrarySearchScope;
   retrieval: Retrieval;
   reindexFolder: (folder: string) => Promise<SyncResult>;
-  indexStatus: (folderRoot?: string) => Promise<IndexStatus>;
+  indexStatus: (folderRoot?: string) => Promise<IndexerStatus>;
   memberFolderRoots: () => string[];
   createProject: typeof createProjectFolder;
   listDirectory: typeof listLibraryDirectory;
@@ -236,7 +235,7 @@ export function createLibraryOperations(
           folders.push({ folder: target, error: errorMessage(err) });
         }
       }
-      let status: Partial<IndexStatus> = {};
+      let status: Partial<IndexerStatus> = {};
       try {
         status = await deps.indexStatus(folderRoot);
       } catch (err: unknown) {

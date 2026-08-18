@@ -52,7 +52,11 @@ folder. No account, AI Index source, active folder, or Agent runtime is assumed.
    every optional capability first.
 6. **Return.** Close and relaunch StashBase. The library, durable settings, and
    completed setup remain available; transient skips and active-folder choice
-   follow their documented scope rather than becoming hidden global state.
+   follow their documented scope rather than becoming hidden global state. A
+   packaged build may quietly check the stable release channel when the saved
+   default-on preference permits it. One deliberate Update action may then
+   download, install, and relaunch after open edits are saved; Linux package
+   installs may request system administrator approval.
 
 ### Required Observable Results
 
@@ -298,16 +302,21 @@ ready, missing, disconnected, or recoverable.
 
 1. Use New Chat and choose the Agent and Library or folder scope.
 2. When the runtime is missing, explicitly choose **Install and continue**.
-3. Connect StashBase context and send a prompt.
-4. Inspect streaming output, tool activity, permissions, attachments, failures,
+3. When Codex is installed but signed out, choose **Sign in with ChatGPT** and
+   finish the provider-owned browser flow started by that same runtime.
+4. Connect StashBase context and send a prompt.
+5. Inspect streaming output, tool activity, permissions, attachments, failures,
    and file artifacts.
-5. Continue, edit and resend, or open a source beside the same mounted Chat.
-6. Switch workspace folders without silently rebinding started work.
+6. Continue, edit and resend, or open a source beside the same mounted Chat.
+7. Switch workspace folders without silently rebinding started work.
 
 ### Required Observable Results
 
 - Opening the app, a folder, a tab, or history is never runtime-installation
   consent.
+- Codex authentication uses the executable StashBase already discovered or
+  installed. StashBase neither installs a second copy nor receives the
+  provider credential.
 - A started draft, turn, attachment set, or restored conversation retains its
   visible scope.
 - Chat-primary and docked layouts preserve the same session and in-progress
@@ -322,9 +331,12 @@ ready, missing, disconnected, or recoverable.
 
 ### Degradation and Recovery
 
-Runtime installation, MCP connection, transport, and turn failures remain
-distinguishable and preserve the transcript. Abandoned or interrupted output
-cannot arrive in a newer turn or session.
+Runtime installation, authentication, MCP connection, transport, and turn
+failures remain distinguishable and preserve the transcript. An installation
+failure retains a no-download recheck so a CLI installed or repaired outside
+StashBase can resume preparation without repeating the managed install. The
+same recheck accepts a Codex login completed elsewhere. Abandoned or
+interrupted output cannot arrive in a newer turn or session.
 
 ### Evidence
 

@@ -3,24 +3,17 @@ import { derivedNoteFor } from './derived-store.ts';
 import type { SearchHit } from './indexer.ts';
 import fs from 'node:fs';
 import { filesystemPath } from './filesystem-path.ts';
+import type { KeywordHitFile } from '../shared/search-results.ts';
 
-export interface KeywordMatch {
-  line: number;
-  text: string;
-  ranges: Array<[number, number]>;
-  pdfPage?: number;
-  /** Exact transcript position retained independently from display snippet
-   * truncation. Present only for AppData-derived audio Markdown. */
-  audioTimestampMs?: number;
-}
+export type { KeywordHitFile, KeywordMatch } from '../shared/search-results.ts';
 
-export interface KeywordHitFile {
-  path: string;
-  matches: KeywordMatch[];
-  totalMatches: number;
-}
-
-export interface KeywordSearchResult {
+/**
+ * The raw output of a keyword scan, before a route echoes the request back
+ * onto it. Deliberately NOT the `/api/keyword-search` response — that is
+ * `KeywordSearchResult` in `shared/search-results.ts`, which additionally
+ * carries the `query` and `folder` the caller asked for.
+ */
+export interface KeywordScanResult {
   files: KeywordHitFile[];
   totalMatches: number;
   truncated: boolean;
@@ -29,7 +22,7 @@ export interface KeywordSearchResult {
 export function remapKeywordFilesForDisplay(
   files: KeywordHitFile[],
   baseAbs: string,
-): Pick<KeywordSearchResult, 'files' | 'totalMatches'> {
+): Pick<KeywordScanResult, 'files' | 'totalMatches'> {
   const byPath = new Map<string, KeywordHitFile>();
   const seenMatches = new Map<string, Set<string>>();
 

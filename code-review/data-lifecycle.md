@@ -164,7 +164,8 @@ of the resource tradeoff.
 | Scheduling Interface | `ConversionScheduler` in `server/conversion-scheduler.ts` |
 | Format dispatch Interface | `server/conversion-dispatch.ts` and `server/conversion.ts` |
 | Reconcile owner | `server/sync.ts`, `server/state.ts`, `server/semantic-workload.ts` |
-| Index Interface | `server/indexer.ts`, implemented by `server/indexer.mfs.ts` |
+| Index Interface | `IndexerStatus` and the rest of `server/indexer.ts`, implemented by `server/indexer.mfs.ts` |
+| Folder status contract | `IndexStatus` in `shared/index-status.ts`, built by `buildIndexStatus` in `server/index-status.ts` — a superset of `IndexerStatus`, not the same type |
 | Daemon Adapter | `server/mfs-daemon.ts` ↔ `python/stashbase_daemon.py` |
 | Retrieval Interface | `server/retrieval/index.ts`, with keyword, semantic, and evidence Modules beside it |
 | Format owners | PDF, OCR, DOCX, and audio Modules under `server/` plus their native/Python Adapters |

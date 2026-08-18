@@ -11,6 +11,7 @@
  */
 
 const { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -30,6 +31,9 @@ const { createBugReportHandoff } = require('./bug-report-handoff.cjs');
 const { registerBugReportReviewIpc } = require('./bug-report-review-ipc.cjs');
 const { createBugReportReviewWindow } = require('./bug-report-review-window.cjs');
 const { shouldOfferClipboardImage } = require('./clipboard-watch-policy.cjs');
+const { createUpdateInstaller } = require('./update-install-strategy.cjs');
+const { createUpdateManager } = require('./update-manager.cjs');
+const { createUpdateWindowBarrier } = require('./update-window-barrier.cjs');
 const {
   WINDOW_ID_ARG_PREFIX,
   classifyProtocolLaunch,
@@ -161,6 +165,64 @@ const safeReload = createSafeReloadCoordinator({
 const approvedWindowCloses = new WeakSet();
 const pendingWindowCloses = new WeakSet();
 let lastMainWindow = null;
+
+function broadcastUpdateState(state) {
+  for (const win of mainWindows) {
+    if (isLiveMainWindow(win)) win.webContents.send('updates:state', state);
+  }
+}
+
+async function readAutoUpdatePreference() {
+  const response = await fetch(`${SERVER_URL}/api/updates/preferences`);
+  if (!response.ok) throw new Error(`Update preferences returned HTTP ${response.status}`);
+  const preferences = await response.json();
+  return preferences?.autoCheck === true;
+}
+
+const updateWindowBarrier = createUpdateWindowBarrier({
+  getWindows: () => mainWindows,
+  isLiveWindow: (win) => isLiveMainWindow(win),
+  shouldRequestFlush: (win) => {
+    const readiness = rendererFlushReadinessByWebContents.get(win.webContents.id);
+    return readiness?.shouldRequest() === true;
+  },
+  requestFlush: (win) => rendererFlush.request(win, 'update-install'),
+  approveClose: (win) => approvedWindowCloses.add(win),
+  revokeCloseApproval: (win) => approvedWindowCloses.delete(win),
+  onBlocked: async () => {
+    const parent = isLiveMainWindow(lastMainWindow) ? lastMainWindow : undefined;
+    const options = {
+      type: 'error',
+      title: 'Could not install update',
+      message: 'StashBase could not confirm that every open edit was saved.',
+      detail: 'Resolve the save error and try the update again.',
+    };
+    if (parent) await dialog.showMessageBox(parent, options);
+    else await dialog.showMessageBox(options);
+  },
+});
+
+const installDesktopUpdate = createUpdateInstaller({
+  updater: autoUpdater,
+  app,
+  platform: process.platform,
+  appImagePath: process.env.APPIMAGE || null,
+  fileExists: fs.existsSync,
+});
+
+const desktopUpdates = createUpdateManager({
+  updater: autoUpdater,
+  currentVersion: app.getVersion(),
+  platform: process.platform,
+  isPackaged: app.isPackaged,
+  readAutoCheck: readAutoUpdatePreference,
+  beforeInstall: updateWindowBarrier.prepare,
+  installUpdate: installDesktopUpdate,
+  afterInstallFailure: updateWindowBarrier.revoke,
+  openReleasePage: (url) => openHttpExternal(url, 'update release URL'),
+  onStateChange: broadcastUpdateState,
+  debugEnabled: !app.isPackaged,
+});
 const bugReports = createBugReportService({
   captureScreenshot: async ({ webContentsId }) => {
     const sourceWindow = [...mainWindows].find((win) => (
@@ -908,6 +970,7 @@ async function createWindow(initialFolder) {
   win.webContents.on('did-finish-load', () => {
     rendererFlushReadiness.markDocumentLoaded();
     pushFullscreen();
+    win.webContents.send('updates:state', desktopUpdates.getState());
   });
 
   // Reload is a destructive renderer-context transition. Native reload and
@@ -1152,6 +1215,41 @@ ipcMain.handle('clipboard:refreshWatch', async (event) => {
   return clipboardWatchEnabled;
 });
 
+ipcMain.handle('updates:getState', (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  return isLiveMainWindow(senderWindow) ? desktopUpdates.getState() : null;
+});
+
+ipcMain.handle('updates:check', async (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!isLiveMainWindow(senderWindow)) return null;
+  return desktopUpdates.check({ manual: true });
+});
+
+ipcMain.handle('updates:primaryAction', async (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!isLiveMainWindow(senderWindow)) return null;
+  return desktopUpdates.primaryAction();
+});
+
+ipcMain.handle('updates:openDownloadPage', async (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!isLiveMainWindow(senderWindow)) return false;
+  return desktopUpdates.openDownloadPage();
+});
+
+ipcMain.handle('updates:refreshPreference', async (event) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!isLiveMainWindow(senderWindow)) return null;
+  return desktopUpdates.refreshPreference();
+});
+
+ipcMain.handle('updates:setSimulation', (event, simulation) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (!isLiveMainWindow(senderWindow)) return null;
+  return desktopUpdates.setUpdateSimulation(simulation);
+});
+
 // Renderer confirms it imported (or chose to keep ignoring) a clipboard
 // image; remember the hash so re-focus doesn't re-offer the same one.
 ipcMain.on('clipboard:markHandled', (_event, hash) => {
@@ -1261,6 +1359,7 @@ if (!hasSingleInstanceLock) {
     }
     installApplicationMenu();
     await initialWindowFlight.run();
+    await desktopUpdates.start();
     if (initialProtocolLaunch === 'oauth-return') focusOAuthReturn();
   });
 
@@ -1308,4 +1407,8 @@ app.on('will-quit', (event) => {
     clearTimeout(fallback);
     app.exit(process.exitCode || 0);
   });
+});
+
+app.on('quit', () => {
+  desktopUpdates.dispose();
 });

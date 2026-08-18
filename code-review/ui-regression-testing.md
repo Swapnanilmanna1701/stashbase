@@ -19,7 +19,51 @@
 Add a regression at the lowest layer that proves the behavior. Promotion to a
 broader layer must buy evidence that the lower Seam cannot provide.
 
-## Harness and Isolation
+## What a renderer assertion may read
+
+A renderer invariant is asserted against **rendered output**, never against a
+component's source text. Mount the component and query what it produced —
+`renderToStaticMarkup` for static markup, `react-test-renderer` when the
+assertion needs hooks or effects. Assertions live beside the feature that owns
+the component, in that feature's `__tests__` folder.
+
+Reading a component file off disk and matching its text pins the invariant to
+a file path and a spelling: the assertion breaks when the component moves or
+is split, and passes when the component keeps the matched text but stops
+rendering it. Both failure modes are wrong in the same direction — the test
+tracks the source, not the behavior.
+
+Source text is the correct artefact in exactly two cases, both in
+`common/__tests__/renderer-foundation.test.ts`:
+
+- **Stylesheets.** A token forwarding rule such as `--radius-lg:
+  var(--radius-container)` has no rendered form to assert against; the text is
+  the artefact.
+- **Repo-wide literal bans.** The `walkCss` / `walkSources` scans forbid
+  specific literals in every file, including inside injected `<style>` strings
+  no render reaches. They walk the tree instead of naming paths, so a file
+  moving between folders neither breaks them nor drops out of their coverage.
+
+Two Vite-only specifier forms cannot reach Node's resolver, so
+`scripts/vite-import-stub-loader.mjs` stands in for both: a colocated
+stylesheet import resolves to an empty module, and Vite's `?worker` suffix
+resolves to a constructible Worker-shaped stub. It is registered *after* `tsx` in
+`test:renderer`, because the most recently registered hook resolves first and
+`tsx` would otherwise strip the `?worker` query and load the bare worker
+entry, which exports nothing. `domEnvironment` additionally defines the canvas
+geometry interfaces (`DOMMatrix`, `DOMPoint`, `Path2D`, `ImageData`) that
+pdf.js reads at module scope and happy-dom does not implement.
+
+No renderer component is asserted through source text any more. The PDF
+viewer was the last one: its six assertions pinned effect dependency arrays
+and the single-scroll-owner protocol, which the 861-line component exposed
+nowhere. Splitting it gave each machine a hook with an interface to drive, and
+the claims now run against those hooks in
+`web-src/src/features/documents/__tests__/pdf-viewer.test.ts`. When an
+invariant has no queryable surface, that is the move: give it one, rather than
+reading the file that implements it.
+
+## Harness, isolation, and cleanup
 
 - Each worker owns disposable folders, configuration, ports, server processes,
   Agent fixtures, and browser state. Tests never read personal credentials or

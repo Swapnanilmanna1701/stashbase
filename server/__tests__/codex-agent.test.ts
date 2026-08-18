@@ -898,6 +898,39 @@ test('Codex Session failed turn completed with message preserves it', async (t) 
   session.dispose();
 });
 
+test('Codex Session classified turn failure carries its failure kind', async (t) => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-codex-err-kind-'));
+  runWithWindowId('err-kind-window', () => setCurrentFolder(folder));
+  t.after(() => {
+    clearAgentRuntimeFailure('codex');
+    runWithWindowId('err-kind-window', () => clearCurrentFolder());
+    fs.rmSync(folder, { recursive: true, force: true });
+  });
+
+  const ws = new FakeWebSocket();
+  const native = catalogProcess();
+  const session = new CodexSession(
+    ws as unknown as WebSocket,
+    'err-kind-window',
+    undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+    () => native.proc as unknown as ChildProcessWithoutNullStreams,
+  );
+  session.begin();
+  await settle();
+
+  ws.emit('message', JSON.stringify({ t: 'prompt', text: 'hello' }));
+  await settle();
+
+  emitCodexTurnCompleted(native.proc, 'turn-1', 'failed', '401 Unauthorized: token expired');
+  await settle();
+
+  const events = ws.sent.map((item) => JSON.parse(item) as { t: string; message?: string; failure?: unknown });
+  assert.deepEqual(events.filter((event) => event.t === 'error'), [
+    { t: 'error', message: '401 Unauthorized: token expired', failure: { kind: 'auth-expired' } },
+  ]);
+  session.dispose();
+});
+
 test('Codex Session failed turn completed without message uses fallback', async (t) => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-codex-err-fallback-'));
   runWithWindowId('err-fallback-window', () => setCurrentFolder(folder));

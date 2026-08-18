@@ -19,7 +19,7 @@ import { isCloudPlaceholderName, isIndexExcludedDirName } from './indexable.ts';
 import {
   type KeywordHitFile,
   type KeywordMatch,
-  type KeywordSearchResult,
+  type KeywordScanResult,
 } from './search-display.ts';
 import type { SearchTypeCategory } from '../shared/search-types.ts';
 
@@ -48,12 +48,12 @@ export async function runKeywordSearch(
   query: string,
   folderRoot: string,
   opts: KeywordSearchOpts,
-): Promise<KeywordSearchResult> {
+): Promise<KeywordScanResult> {
   const types = opts.types ?? [];
   const wantsDirectText = types.length === 0 || types.includes('notes') || types.includes('data');
   const wantsConvertible = types.length === 0
     || types.some((type) => type !== 'notes' && type !== 'data');
-  const empty: KeywordSearchResult = { files: [], totalMatches: 0, truncated: false };
+  const empty: KeywordScanResult = { files: [], totalMatches: 0, truncated: false };
   return mergeKeywordResults(
     wantsDirectText ? await runRipgrep(query, folderRoot, opts) : empty,
     wantsConvertible ? searchDerivedMarkdown(query, folderRoot, opts) : empty,
@@ -63,7 +63,7 @@ export async function runKeywordSearch(
 /** Spawn ripgrep on `cwd` with `query` as a literal pattern (no shell).
  *  `--json` gives structured `match` events; we group them into
  *  per-file buckets, applying caps and truncations. */
-function runRipgrep(query: string, cwd: string, opts: KeywordSearchOpts): Promise<KeywordSearchResult> {
+function runRipgrep(query: string, cwd: string, opts: KeywordSearchOpts): Promise<KeywordScanResult> {
   return new Promise((resolve, reject) => {
     const args = [
       '--json',
@@ -176,7 +176,7 @@ export function resolveSpawnableRipgrepPath(candidate: string): string {
   return fs.existsSync(unpacked) ? unpacked : candidate;
 }
 
-function searchDerivedMarkdown(query: string, folderRoot: string, opts: KeywordSearchOpts): KeywordSearchResult {
+function searchDerivedMarkdown(query: string, folderRoot: string, opts: KeywordSearchOpts): KeywordScanResult {
   const files: KeywordHitFile[] = [];
   let total = 0;
   let truncated = false;
@@ -338,7 +338,7 @@ function pdfPageForDerivedLine(lines: string[], lineNumber: number): number | un
   return page;
 }
 
-function mergeKeywordResults(a: KeywordSearchResult, b: KeywordSearchResult): KeywordSearchResult {
+function mergeKeywordResults(a: KeywordScanResult, b: KeywordScanResult): KeywordScanResult {
   const byPath = new Map<string, KeywordHitFile>();
   for (const file of [...a.files, ...b.files]) {
     const existing = byPath.get(file.path);

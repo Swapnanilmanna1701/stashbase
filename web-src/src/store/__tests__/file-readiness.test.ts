@@ -5,7 +5,7 @@ import {
   getPreparationFailure,
   getPreparationProblem,
   hasAggregatePreparationFailure,
-} from '../fileReadiness.ts';
+} from '@/store/lib/fileReadiness';
 
 test('cancelled preparation remains retryable without being labelled a failure', () => {
   const state = {

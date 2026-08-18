@@ -36,17 +36,15 @@ import {
   PDF_EXTENSIONS,
   PDF_EXTENSION_ALTERNATION,
   STRUCTURED_DATA_EXTENSIONS,
+  type DirectTextFormat,
+  type ViewerFormat,
 } from '../shared/file-formats.ts';
 import { SEARCH_TYPE_CATEGORIES, type SearchTypeCategory } from '../shared/search-types.ts';
 
 /** Directly readable text formats — indexed directly (the file is the source). */
-export type FileFormat = 'md' | 'html' | 'json';
+export type FileFormat = DirectTextFormat;
 
-/** Everything the renderer can open in the file tree: the structured
- *  note formats plus the convertible binaries (pdf, image) that are
- *  viewable but searched via AppData-derived text. Kept
- *  distinct from `FileFormat` so convertible sources cannot enter the direct-text path. */
-export type ViewerFormat = FileFormat | 'pdf' | 'image' | 'docx' | 'audio';
+export type { DirectTextFormat, ViewerFormat } from '../shared/file-formats.ts';
 
 /** Recognised note extensions and how the rest of the pipeline should
  *  treat them. Adding a format = one line here + a chunker + a viewer —

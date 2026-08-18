@@ -1,5 +1,15 @@
 import packageJson from '../package.json' with { type: 'json' };
 import crypto from 'node:crypto';
+import type { HostedAccountState, HostedOAuthProvider, HostedOAuthStart, HostedOAuthStatus, HostedQuota } from '../shared/account.ts';
+
+export type {
+  HostedAccountActivation,
+  HostedAccountState,
+  HostedOAuthProvider,
+  HostedOAuthStart,
+  HostedOAuthStatus,
+  HostedQuota,
+} from '../shared/account.ts';
 import {
   getEmbeddingSource,
   getHostedAccountSession,
@@ -14,34 +24,12 @@ const SUPABASE_URL = 'https://vqtfigkoihpuziaimluf.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_D-S7Ry-IWC9pTdDx6DHHHw_-mmaTp3b';
 const CLIENT_VERSION = packageJson.version;
 
-export interface HostedQuota {
-  plan: string;
-  grantedTokens: number;
-  usedTokens: number;
-  reservedTokens: number;
-  remainingTokens: number;
-  periodStartedAt: string | null;
-  periodEndsAt: string | null;
-}
-
-export interface HostedAccountState {
-  signedIn: boolean;
-  active: boolean;
-  email?: string;
-  displayName?: string;
-  /** Same-origin renderer endpoint; the provider URL remains Node-only. */
-  avatarUrl?: string;
-  quota?: HostedQuota;
-  quotaUnavailable?: boolean;
-}
-
 interface SupabaseUser {
   id?: string;
   email?: string;
   user_metadata?: Record<string, unknown>;
   identities?: Array<{ provider?: string; identity_data?: Record<string, unknown> }>;
 }
-
 interface SupabaseTokenResponse {
   access_token?: string;
   refresh_token?: string;
@@ -59,20 +47,6 @@ interface ErrorPayload {
   error?: string;
   error_description?: string;
   msg?: string;
-}
-
-export type HostedOAuthProvider = 'google';
-
-export interface HostedOAuthStart {
-  flowId: string;
-  provider: HostedOAuthProvider;
-  url: string;
-}
-
-export interface HostedOAuthStatus {
-  state: 'pending' | 'complete' | 'error';
-  error?: string;
-  appReturned?: boolean;
 }
 
 interface PendingOAuthFlow {

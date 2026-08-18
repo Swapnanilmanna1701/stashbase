@@ -68,8 +68,17 @@ aliases, and Journey E2E owns representative composition.
 
 - **Contract Test:** renderer initialization, Settings state, workspace
   navigation, and Electron lifecycle are exercised by `pnpm test:renderer`,
-  `pnpm test:config`, and `pnpm test:electron:smoke`; account identity fixtures
-  cover profile normalization, migration, privacy, and UI fallbacks.
+  `pnpm test:config`, `pnpm test:updates`, and `pnpm test:electron:smoke`.
+  Account identity fixtures cover profile normalization, migration, privacy,
+  and UI fallbacks.
+  Renderer state evidence keeps bootstrap settlement distinct from confirmed
+  library membership, so a failed or pending membership load cannot claim the
+  library is empty.
+  The Settings smoke drives the development-only update simulator through the
+  production update-state bridge to verify available and ready update-banner
+  behavior without claiming a packaged installation; the Linux workspace
+  visual suite owns the floating banner's composition above persistent account
+  utilities.
 - **Journey E2E:** [launch smoke](../e2e/smoke/launch.spec.ts) and
   [library navigation](../e2e/journeys/library-navigation.spec.ts) exercise
   blank-workspace entry, AI Index skip behavior, folder selection, and local
@@ -80,8 +89,8 @@ aliases, and Journey E2E owns representative composition.
   J10 rather than being duplicated here.
 - **Release Check:** Gatekeeper acceptance of the Developer ID-signed and
   notarized macOS artifact, packaged first launch, native folder selection,
-  offline startup, and one first-session-to-returning-session pass remain
-  release evidence.
+  offline startup, one first-session-to-returning-session pass, and real
+  N→N+1 desktop updates on supported platforms remain release evidence.
 - **Gap:** no single Journey E2E currently proves that a first-time user sees
   the source/derived/hosted distinction, authorizes useful content, reaches a
   concrete first result, and returns without unnecessary onboarding replay.
@@ -174,7 +183,10 @@ aliases, and Journey E2E owns representative composition.
 
 - **Contract Test:** `pnpm test:agent`, `pnpm test:e2e:agent-protocol`, and
   renderer tests cover consent, normalized protocol, scope, lifecycle,
-  permissions, recovery, transcript, and layout state.
+  permissions, failed-install external recheck without another download,
+  managed Codex PowerShell path ownership and missing-output diagnostics,
+  installed-but-signed-out Codex detection, same-executable browser login,
+  recovery, transcript, and layout state.
 - **Journey E2E:** [Agent Panel](../e2e/journeys/agent-panel.spec.ts) exercises
   the built-in panel against the deterministic fake runtime.
 - **AI Eval:** not required for panel and runtime correctness; actual
@@ -258,7 +270,7 @@ aliases, and Journey E2E owns representative composition.
   attribution, history override ordering, and rebind-race rollback.
   [MCP transport tests](../server/__tests__/mcp-http-transport.test.ts) prove
   attributed built-in calls and unattributed external calls remain distinct.
-  [renderer scope tests](../web-src/src/__tests__/agent-folder-pill.test.ts)
+  [renderer scope tests](../web-src/src/features/agent-panel/__tests__/agent-folder-pill.test.ts)
   prove the Library-to-folder scope presentation.
 - **Journey E2E:** [Agent workflows](../e2e/journeys/agent-workflows.spec.ts)
   rejects one visible `create_project` approval and proves no directory or

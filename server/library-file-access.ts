@@ -10,6 +10,8 @@ import { normalizeFolderRelativePath } from './folder-relative-path.ts';
 import { isDerivedNoteName } from './format.ts';
 import { libraryOperationError } from './library-operations/errors.ts';
 
+export type { AgentContextFile } from '../shared/library-files.ts';
+
 export interface LibrarySearchScope {
   /** Absolute root of the folder to scope to, or undefined for whole-library. */
   folderRoot?: string;
@@ -77,22 +79,6 @@ export interface LibraryDirectoryEntry {
   format?: string;
   size?: number;
   version?: string;
-}
-
-export interface AgentContextFile {
-  /** Absolute source spelling exposed to MCP/file tools. */
-  path: string;
-  /** Display label of the member folder containing the source. */
-  folder: string;
-  /** Folder-relative visible source path (`paper.pdf`). */
-  sourcePath: string;
-  /** Path the agent should read first (folder-relative for direct text; an
-   *  absolute app-data path for extracted PDF/DOCX text). */
-  readPath: string;
-  kind: 'direct' | 'derived';
-  sourceFormat: string;
-  available: boolean;
-  reason: string;
 }
 
 /** Resolve a raw native or POSIX-spelled path to an absolute POSIX path,

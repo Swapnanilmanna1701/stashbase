@@ -7,6 +7,9 @@ import { detectFormat, detectViewerFormat, isDerivedNoteName, type FileFormat, t
 import { isCloudPlaceholderName, isHiddenDirName, isIndexExcludedDirName, MAX_INDEXABLE_BYTES, shouldIndexFilePath } from './indexable.ts';
 import { normalizeFolderRelativePath } from './folder-relative-path.ts';
 import { folderRoot, resolveSafe } from './file-paths.ts';
+import type { UnsupportedFileSummary } from '../shared/library-files.ts';
+
+export type { UnsupportedFileSummary } from '../shared/library-files.ts';
 
 const LEGACY_DERIVED_SOURCE_RE = new RegExp(`^(.+)\\.(${LEGACY_DERIVED_SOURCE_EXTENSION_ALTERNATION})$`, 'i');
 const LEGACY_DERIVED_STEM_RE = new RegExp(`\\.(${LEGACY_DERIVED_SOURCE_EXTENSION_ALTERNATION})$`, 'i');
@@ -27,15 +30,6 @@ export interface FileEntry {
 export interface FolderEntry {
   /** Folder-relative POSIX path (e.g. `topic/sub`). */
   path: string;
-}
-
-export interface UnsupportedFileSummary {
-  sourceCode: number;
-  other: number;
-  otherExtensions: Array<{
-    extension: string;
-    count: number;
-  }>;
 }
 
 export interface FolderListing {

@@ -68,6 +68,15 @@ after readiness, a save failure or timeout keeps the window open.
   paint. Website, Community Discord, and Report an Issue open fixed shared URLs
   in the system browser; Report a Bug enters the J09 review flow. These are
   cross-cutting support routes, not separate product journeys.
+- Electron main owns release checks and installation. The renderer receives a
+  bounded state snapshot and may request Check or one Update operation; it
+  cannot select a feed or installer path. Update downloads, crosses every ready
+  renderer save barrier, invokes the platform installer, and relaunches. A save
+  failure leaves the downloaded update ready for retry. Windows uses silent
+  NSIS after the explicit click; Authenticode publisher verification applies
+  when the installed build was signed. Linux deb may request elevation. The
+  AppImage Adapter applies without force-running a competing instance and asks
+  Electron to relaunch the final filename after the old process exits.
 - Frameless chrome remains draggable on every desktop platform; macOS
   traffic-light layout is selected only by the exact Darwin platform marker.
 
@@ -113,7 +122,8 @@ creation, presentation, survival, and retirement.
 | HTTP Adapters | `server/routes/window-context.ts`, `server/routes/internal-shutdown.ts` |
 | Cleanup Interface | `server/shutdown-cleanup.ts` |
 | Bug-report window Adapter | `electron/bug-report-review-window.cjs`; draft authority lives in [Bug Reporting](bug-reporting.md) |
-| Focused evidence | `electron/multi-window.test.cjs`, `electron/multi-window-smoke.cjs`, `server/folder-window.test.ts`, `server/window-context-route.test.ts`, `server/internal-shutdown-route.test.ts`, `server/__tests__/shutdown-cleanup.test.ts` |
+| Desktop update Module | `electron/update-manager.cjs`; platform install strategy in `electron/update-install-strategy.cjs`; all-window save barrier in `electron/update-window-barrier.cjs`; IPC and native Adapters in `electron/main.cjs` and `electron/preload.cjs` |
+| Focused evidence | `electron/multi-window.test.cjs`, `electron/update-manager.test.cjs`, `electron/update-install-strategy.test.cjs`, `electron/update-window-barrier.test.cjs`, `electron/multi-window-smoke.cjs`, `server/folder-window.test.ts`, `server/window-context-route.test.ts`, `server/internal-shutdown-route.test.ts`, `server/__tests__/shutdown-cleanup.test.ts` |
 
 ## Validation
 

@@ -8,15 +8,21 @@ import { hasNoExtractableText, shouldIndexFilePath } from './indexable.ts';
 import { displayPathForHit } from './pdf.ts';
 import { getFsChangeCounter } from './watcher.ts';
 import { getIndexWarning, getSemanticIndexingState, indexer } from './state.ts';
+import type { IndexStatus, PreparationFailure, SemanticIndexingState } from '../shared/index-status.ts';
+
+/** The `/api/index-status` wire contract lives in `shared/index-status.ts` so
+ * the renderer can import it without pulling this module's server-only graph
+ * (`node:fs`, the conversion scheduler, the indexer) into the browser bundle.
+ * Re-exported here so server-side callers keep one import site. */
+export type {
+  IndexStatus,
+  IndexWarning,
+  PreparationFailure,
+  SemanticIndexingState,
+  SemanticIndexingStatus,
+} from '../shared/index-status.ts';
 
 type SchedulerSnapshot = ReturnType<typeof getConversionSchedulerSnapshot>;
-
-export interface PreparationFailure {
-  path: string;
-  lastError: string;
-  attempts: number;
-  status: 'failed' | 'cancelled';
-}
 
 export function semanticIndexingState(input: {
   enabled: boolean;
@@ -25,7 +31,7 @@ export function semanticIndexingState(input: {
   pending: number;
   failed: boolean;
   quotaExhausted?: boolean;
-}): string {
+}): SemanticIndexingState {
   if (!input.enabled) return 'disabled';
   if (input.quotaExhausted) return input.indexed > 0 ? 'partial-quota-exhausted' : 'quota-exhausted';
   if (input.decision === 'awaiting-decision') return 'awaiting-decision';
@@ -35,7 +41,7 @@ export function semanticIndexingState(input: {
   return 'ready';
 }
 
-export async function buildIndexStatus(folderRoot: string): Promise<Record<string, unknown>> {
+export async function buildIndexStatus(folderRoot: string): Promise<IndexStatus> {
   const curRoot = filesystemPath.absolute(folderRoot);
   const status = await indexer.status(curRoot);
   const treeVersion = getFsChangeCounter();

@@ -126,7 +126,7 @@ Before creating commits, run the complete validation matrix for the pending
 change:
 
 - `pnpm typecheck` always;
-- `pnpm build:web` for renderer changes;
+- `pnpm lint:web` and `pnpm build:web` for renderer changes;
 - focused commands from every crossed review contract;
 - `pnpm test:docs` for documentation structure, links, contracts, or journey
   mapping changes;

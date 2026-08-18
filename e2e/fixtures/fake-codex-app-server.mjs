@@ -32,6 +32,15 @@ record({
   networkDenied: fakeAgentNetworkPolicy.denied,
 });
 
+if (process.argv[2] === 'login' && process.argv[3] === 'status') {
+  process.stdout.write('Logged in using deterministic fixture\n');
+  process.exit(0);
+}
+if (process.argv[2] === 'login') {
+  process.stdout.write('Deterministic browser login completed\n');
+  process.exit(0);
+}
+
 const input = readline.createInterface({ input: process.stdin });
 input.on('line', (line) => {
   let message;

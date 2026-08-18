@@ -32,7 +32,7 @@
  *     { t: "tool-result", id, content, isError }       // its result
  *     { t: "permission", id, toolUseId, name, title, input }  // needs approve/reject
  *     { t: "turn-end", isError }                       // result message
- *     { t: "error", message }
+ *     { t: "error", message, failure? }                // failure = classified turn-failure kind
  *     { t: "exit", message? }                          // normal or fatal session end
  */
 import { randomUUID } from 'node:crypto';
@@ -67,6 +67,12 @@ import {
   type AttributedAgentSession,
 } from './agent-session-registry.ts';
 import { agentSessionFolderOverride } from './agent-session-folders.ts';
+import {
+  consumeAgentTurnFailure,
+  simulatedTurnFailureScript,
+  type AgentTurnFailureSimulation,
+} from './agent-runtime-paths.ts';
+import { agentTurnErrorEvent } from './agent-turn-failure.ts';
 import { detectViewerFormat } from './format.ts';
 import { isAgentReadableDerivedTextReady } from './library-file-reader.ts';
 
@@ -650,6 +656,14 @@ export class AgentSession implements AttributedAgentSession {
           finalMessage = finalMessage.slice(0, 2000);
         }
       } else {
+        // A signed-out or API-refused run reports `is_error` with NO errors
+        // array and a non-error subtype ('success'): the only provider text
+        // is the `result` string (e.g. "Not logged in · Please run /login").
+        // Surface it so classification can name the real recovery instead of
+        // the generic fallback.
+        const resultText = typeof (msg as { result?: unknown }).result === 'string'
+          ? ((msg as { result: string }).result).trim()
+          : '';
         const subtype = msg.subtype;
         if (subtype === 'error_max_turns') {
           finalMessage = 'Claude stopped after reaching the maximum number of turns.';
@@ -657,13 +671,15 @@ export class AgentSession implements AttributedAgentSession {
           finalMessage = 'Claude stopped after reaching the configured budget.';
         } else if (subtype === 'error_max_structured_output_retries') {
           finalMessage = 'Claude could not produce the requested structured response.';
+        } else if (resultText) {
+          finalMessage = resultText.slice(0, 2000);
         } else {
           finalMessage = 'Claude failed before completing the turn.';
         }
       }
 
       if (finalMessage) {
-        this.send({ t: 'error', message: finalMessage });
+        this.sendTurnError(finalMessage);
       }
     }
 
@@ -750,7 +766,7 @@ export class AgentSession implements AttributedAgentSession {
       if (this.closed) return;
       reportAgentRuntimeFailure('claude', err);
       this.turnActive = false;
-      this.send({ t: 'error', message: errorMessage(err) });
+      this.sendTurnError(errorMessage(err));
       this.send({ t: 'turn-end', isError: true });
     }
   }
@@ -768,6 +784,10 @@ export class AgentSession implements AttributedAgentSession {
         // terminal event. Refuse an out-of-contract concurrent prompt rather
         // than letting one SDK result settle the wrong turn.
         if (this.turnActive) return;
+        {
+          const simulated = consumeAgentTurnFailure();
+          if (simulated) { this.playSimulatedTurnFailure(simulated); break; }
+        }
         this.turnActive = true;
         this.turnGeneration += 1;
         this.interruptRequested = false;
@@ -851,6 +871,30 @@ export class AgentSession implements AttributedAgentSession {
   private send(obj: AgentServerEvent): void {
     if (this.ws.readyState !== 1 /* OPEN */) return;
     try { this.ws.send(JSON.stringify(obj)); } catch { /* ws gone */ }
+  }
+
+  /** Turn-scoped runtime errors carry their classified failure kind so the
+   * renderer can offer the matching recovery without parsing the message. */
+  private sendTurnError(message: string): void {
+    this.send(agentTurnErrorEvent(message));
+  }
+
+  /** Development-only: play the armed turn-failure script through the normal
+   * event path so the renderer exercises the real turn lifecycle. The prompt
+   * never reaches the native runtime. */
+  private playSimulatedTurnFailure(kind: Exclude<AgentTurnFailureSimulation, 'none'>): void {
+    const script = simulatedTurnFailureScript(kind);
+    if (script.fatal) {
+      this.finish(script.message);
+      return;
+    }
+    this.turnActive = true;
+    this.turnGeneration += 1;
+    this.interruptRequested = false;
+    this.send({ t: 'turn-start' });
+    this.turnActive = false;
+    this.sendTurnError(script.message);
+    this.send({ t: 'turn-end', isError: true });
   }
 
   private finish(message?: string): void {

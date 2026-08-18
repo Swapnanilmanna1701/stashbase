@@ -30,6 +30,9 @@ import { clearRecord } from './conversion-status.ts';
 import { deleteDerivedForSource, knownDerivedSourcesUnderFolder } from './derived-store.ts';
 import { filesystemPath } from './filesystem-path.ts';
 import { estimateSemanticWorkload, type SemanticWorkloadEstimate } from './semantic-workload.ts';
+import type { SyncResult } from '../shared/sync.ts';
+
+export type { SyncResult } from '../shared/sync.ts';
 
 const log = logger('sync');
 
@@ -84,25 +87,6 @@ function readTextAt(root: string, abs: string): string | null {
   const rel = filesystemPath.relative(root, abs);
   if (rel == null || rel === '') return null;
   try { return fs.readFileSync(abs, 'utf8'); } catch { return null; }
-}
-
-export interface SyncResult {
-  added: string[];
-  modified: string[];
-  removed: string[];
-  /** Files the daemon's scan_diff matched by content hash to a
-   *  previously-indexed (now-deleted) path. Each entry is the NEW
-   *  folder-relative path. Routed through `indexer.renameFile`, which the
-   *  daemon fast-paths to reuse cached embeddings — no embedding tokens
-   *  spent for these. */
-  renamed: string[];
-  failed: { name: string; error: string }[];
-  /** True when the caller deliberately abandoned the sync because the
-   *  target folder/window is no longer current. Any arrays are partial work
-   *  completed before cancellation was observed. */
-  cancelled?: boolean;
-  /** Embedding was intentionally stopped by the folder's preflight state. */
-  semanticPaused?: boolean;
 }
 
 export interface SyncOptions {

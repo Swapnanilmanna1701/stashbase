@@ -24,15 +24,22 @@ a transcript-centered file manager.
 - New Chat is the deliberate creation entry and reuses a completely blank tab.
   Opening the app, a folder, a tab, or history never grants runtime-installation
   consent; a missing runtime waits for **Install and continue**.
+- An installed but signed-out Codex runtime stops at a dedicated sign-in gate.
+  **Sign in with ChatGPT** runs that same discovered executable's official
+  browser flow; completion resumes preparation without another installation.
 - Every conversation is scoped to Library or one member folder. Drafts,
   attachments, content, and resumed history freeze that scope, while folder
   switching preserves started work. History remains attributable to its Agent
   and home scope.
 - Runtime capabilities determine model, permission, and effort controls without
-  rewriting global CLI defaults. Suggestions prefill rather than send.
+  rewriting global CLI defaults. New sessions start in Auto, where the agent
+  decides when an action needs approval; Ask is an explicit per-session pick.
+  Suggestions prefill rather than send.
 - Streaming, tool activity, permissions, attachments, skills, recovery, and
   file artifacts remain inspectable. Editing and resending an earlier prompt
   stops conflicting active work before beginning the new turn.
+- Attachment labels preserve user-visible Unicode filenames from selection or
+  drop through the sent transcript and restored history.
 - Source and attachment access follows the
   [Documents format matrix](documents.md#format-capability-matrix). Built-in
   image attachment behavior does not imply that every external MCP client can
@@ -55,10 +62,25 @@ a transcript-centered file manager.
   Each missing runtime waits for its own explicit setup action.
 - A runtime, transport, or turn failure leaves one persistent explanation and
   a truthful, stage-specific recovery path. Retrying preparation resumes from
-  the first incomplete stage. Late output from an abandoned generation cannot
-  enter a newer turn.
-- Permission, deletion, command, network, and broader filesystem decisions
-  remain explicit. Tool payloads render in a human-readable form.
+  the first incomplete stage. After an installation failure, **Check again**
+  remains available so an external repair can be discovered without
+  authorizing another download. Authentication is distinct from installation:
+  in-app sign-in uses the selected Codex runtime and never handles its token,
+  while **Check again** discovers a login completed elsewhere. Late output
+  from an abandoned generation cannot enter a newer turn.
+- A failed turn explains itself in the conversation and never blocks the
+  panel: transient rate or network failures and an exhausted plan offer an
+  in-place Try again, and an expired sign-in offers Codex's in-app sign-in
+  or, for Claude, terminal sign-in steps with an in-place Reconnect. Either
+  way the same conversation continues without restarting StashBase: acting
+  on a recovery settles its card — the message remains, the stale action
+  does not — and automatically retries the failed message, answering when
+  the recovery worked and showing a fresh card when it did not. Recovery
+  follows the failure's classified kind, never message prose.
+- The selected permission mode governs which actions the runtime approves on
+  its own. Every approval it surfaces — permission, deletion, command, network,
+  or broader filesystem — is an explicit user decision; the panel never answers
+  one itself. Tool payloads render in a human-readable form.
 - Agent copy and tool affordances describe the actual source or prepared
   representation and never advertise a broader format capability than the
   selected surface provides.

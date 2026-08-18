@@ -10,28 +10,33 @@ const manifestPath = path.join(outputRoot, '.vite', 'manifest.json');
  * rail became the titlebar controls + a sidebar Settings row; 416 → 418
  * when the active-folder header gained the folder-switcher trigger and
  * its menu-item builder (the menu body itself stays in the lazy
- * ManagedMenu chunk). Both are eager chrome by definition. Raise it only
- * for shell UI that must load with the window — anything a user can open
- * on demand belongs in a dynamic entry above. */
-const initialJsBudgetBytes = 418 * 1024;
+ * ManagedMenu chunk). Both are eager chrome by definition. 418 → 424 for
+ * save-conflict resolution and desktop updates: the resolver surface, the
+ * update banner, and the General settings panel are all lazy, but the parts
+ * that decide WHETHER to show them are not — the conflict actions live in
+ * the document action set, and the clipboard-capture handoff lives in the
+ * shell's own hook. Raise it only for shell UI that must load with the
+ * window — anything a user can open on demand belongs in a dynamic entry
+ * above. */
+const initialJsBudgetBytes = 424 * 1024;
 const expectedEntries = [
-  'src/components/ChatPane.tsx',
-  'src/components/agent/AgentMathMarkdown.tsx',
-  'src/components/CrepeDocument.tsx',
-  'src/components/JsonDocument.tsx',
-  'src/components/json/JsonTreeView.tsx',
-  'src/components/PdfPreview.tsx',
-  'src/components/DocxPreview.tsx',
-  'src/components/AudioPreview.tsx',
-  'src/components/ManagedLibrarySearch.tsx',
-  'src/components/ManagedQuickOpen.tsx',
-  'src/components/ContextMenu.tsx',
-  'src/components/DocumentOutline.tsx',
-  'src/components/SemanticIndexingNotice.tsx',
-  'src/components/UnsupportedFilesCallout.tsx',
-  'src/components/EmbeddingSetupCallout.tsx',
-  'src/components/SidebarAccountRow.tsx',
-  'src/components/embedder/RequireApiKeyModal.tsx',
+  'src/features/agent-panel/components/ChatPane.tsx',
+  'src/features/agent-panel/components/AgentMathMarkdown.tsx',
+  'src/features/documents/components/CrepeDocument.tsx',
+  'src/features/documents/components/JsonDocument.tsx',
+  'src/features/documents/components/json/JsonTreeView.tsx',
+  'src/features/documents/components/PdfViewerPane.tsx',
+  'src/features/documents/components/DocxPreview.tsx',
+  'src/features/documents/components/AudioPreview.tsx',
+  'src/features/search/components/ManagedLibrarySearch.tsx',
+  'src/features/search/components/ManagedQuickOpen.tsx',
+  'src/app/components/ContextMenu.tsx',
+  'src/common/components/DocumentOutline.tsx',
+  'src/common/components/SemanticIndexingNotice.tsx',
+  'src/features/preparation/components/UnsupportedFilesCallout.tsx',
+  'src/features/preparation/components/EmbeddingSetupCallout.tsx',
+  'src/features/account/components/SidebarAccountRow.tsx',
+  'src/features/settings/components/embedder/RequireApiKeyModal.tsx',
 ];
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));

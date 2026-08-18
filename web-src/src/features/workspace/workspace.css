@@ -1,0 +1,262 @@
+/* Workspace chrome: the main-pane shell, its document tab strip, the
+ * chat-panel splitter (both live under features/workspace), and the file
+ * tree's preparation-status icons. Relocated verbatim from
+ * styles/mainpane.css, styles/sidebar.css, and styles/chat.css. */
+
+.main {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* No open tabs: keep the content canvas visible for the centered
+ * empty prompt, but hide every chrome strip/button around it. */
+.main.no-file > :not(.main-body) {
+  display: none;
+}
+
+/* Tree rows. FileTree-only preparation-status icons (see common/styles/tree.css
+ * for the shared row primitive these decorate). */
+.tree-row.file.preparation-failed {
+  color: var(--fg);
+}
+
+.tree-row.file.preparation-cancelled {
+  color: var(--fg);
+}
+
+.preparation-status-icon {
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  margin-right: 4px;
+  padding-left: 6px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+/* 14px — the same optical size as the file-format glyphs sharing
+ * these rows; a 16px status mark read as the odd one out. */
+.preparation-status-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.preparation-failure-icon {
+  color: var(--muted);
+  opacity: .9;
+}
+
+.preparation-cancelled-icon {
+  color: var(--muted);
+  opacity: .85;
+}
+
+.preparation-failure-icon .warning-mark-shape {
+  fill: currentColor;
+  stroke: none;
+}
+
+.preparation-failure-icon .warning-mark-text {
+  /* Knockout against the currentColor glyph — the base surface reads
+   * in both themes where a literal white fails on light. */
+  fill: var(--bg);
+  stroke: none;
+  font-size: calc(10px * var(--ui-scale));
+  font-weight: 700;
+  font-family: var(--font-sans);
+  dominant-baseline: auto;
+}
+
+/* Tab strip stays in CSS — electron/tab-strip-layout-smoke.cjs
+ * consumes this file directly. */
+/* Tab strip — sits at the top of the main pane above the back/forward
+ * + breadcrumb row. Layout is a horizontal flex row of chips. */
+.tab-strip {
+  flex: 0 0 auto;
+  background: var(--pane);
+  padding: 6px 8px 0;
+}
+.tab-strip-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  /* Never wrap — VS Code-style single-row strip. When too many
+   * tabs to fit at their natural width each one shrinks (see the
+   * `flex: 1 1 0` on `.tab` below); when even shrunk-to-min tabs
+   * don't fit, a horizontal scrollbar appears. Beats jumping to a
+   * second row, which makes the document area resize and breaks
+   * the "tabs are a strip" mental model. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  min-width: 0;
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 10px;
+  /* `flex: 1 1 0` makes every tab take an equal share of the
+   * available width up to `max-width`; under pressure they shrink
+   * down to `min-width` (just enough for a couple of chars + the
+   * close button). */
+  flex: 1 1 0;
+  max-width: 200px;
+  min-width: 60px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-top-left-radius: var(--radius-control);
+  border-top-right-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  /* 12 (text-sm), the scale's dense-repeating-chip step — a tab strip
+   * is exactly that, not body text. The chat strip matches
+   * (ChatPane.tsx); the two are one role at one size. */
+  font-size: calc(12px * var(--ui-scale));
+  user-select: none;
+}
+.tab:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.tab.active {
+  background: var(--bg);
+  color: var(--fg);
+  border-color: var(--border);
+}
+.tab-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Drag-reorder (HTML5 DnD, mirrors FileTree's drop-indicator
+ * approach). The tab being dragged dims; the drop target paints an
+ * inset accent edge on the side the dragged tab would land. */
+.tab.dragging {
+  opacity: 0.4;
+}
+.tab.drop-before {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+.tab.drop-after {
+  box-shadow: inset -2px 0 0 0 var(--accent);
+}
+
+.tab-close {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: calc(14px * var(--ui-scale));
+  line-height: 1;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.tab-close:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.tab-new {
+  width: 28px;
+  height: 28px;
+  /* Pin to the right of the visible row even when tabs scroll —
+   * never grows or shrinks with them. */
+  flex: 0 0 28px;
+  align-self: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: calc(16px * var(--ui-scale));
+  line-height: 1;
+  border-radius: var(--radius-ui);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  display: grid;
+  place-items: center;
+}
+.tab-new:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+/* Drag handle on the sidebar's right edge. Absolutely positioned at
+ * `left: var(--sidebar-width)` (set inline by React) so it tracks
+ * the panel's right border without consuming a grid track.
+ * The element is a wide-ish (6px) invisible hit area; the visible
+ * cue is a thin 1px line drawn by `::after`, so hovering shows a
+ * crisp seam highlight rather than a fat colored band. */
+.sidebar-splitter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  margin-left: -3px;
+  z-index: 5;
+  cursor: col-resize;
+  background: transparent;
+}
+.sidebar-splitter::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: transparent;
+  transition: background .12s;
+}
+.sidebar-splitter:hover::after,
+.sidebar-splitter:active::after,
+.sidebar-splitter:focus-visible::after {
+  background: var(--accent);
+}
+
+/* Match the sidebar's drag handle above: a 6px hit area whose only
+ * visible cue is a crisp line drawn by `::after` — not a fat colored
+ * band. The strip is painted CANVAS so it reads as part of the chat
+ * panel; left transparent it exposed a 6px slice of the white body
+ * between the sunken tab strip and the canvas panel. */
+.chat-splitter {
+  grid-column: 3;
+  grid-row: 1;
+  position: relative;
+  cursor: col-resize;
+  background: var(--canvas);
+}
+/* This line is the panel's only left divider: a 1px `--border` seam at
+ * rest (the panel itself has no border-left), brightening to a 2px accent
+ * on hover/active. Pinned to the strip's LEFT edge — the true main|chat
+ * boundary now that the strip belongs to the panel side — so there's
+ * a single line, not a splitter line + a separate panel border. */
+.chat-splitter::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: var(--border);
+  transition: background .12s, width .12s;
+}
+.chat-splitter:hover::after,
+.chat-splitter:active::after,
+.chat-splitter:focus-visible::after {
+  width: 2px;
+  background: var(--accent);
+}

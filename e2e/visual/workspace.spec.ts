@@ -50,3 +50,29 @@ test('empty library keeps the redesigned zero-state composition', async ({}, tes
     await visual.close();
   }
 });
+
+test('available update floats above persistent account utilities', async ({}, testInfo) => {
+  const visual = await launchVisualApp('empty', testInfo);
+  try {
+    const { electron, page } = visual.app;
+    await setVisualViewport(page, 1280, 820);
+    await electron.evaluate(({ BrowserWindow, app: electronApp }) => {
+      BrowserWindow.getAllWindows()[0]?.webContents.send('updates:state', {
+        phase: 'available',
+        currentVersion: electronApp.getVersion(),
+        autoCheckEnabled: true,
+        availableVersion: '9.9.9',
+        releaseUrl: 'https://github.com/liliu-z/stashbase/releases/latest',
+      });
+    });
+
+    await expect(page.getByRole('button', { name: 'Update to StashBase 9.9.9' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Join the StashBase Discord' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Report a bug' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+
+    await expectLinuxScreenshot(page, 'workspace-update-banner.png');
+  } finally {
+    await visual.close();
+  }
+});

@@ -62,6 +62,26 @@ function protocolPeer(child) {
   };
 }
 
+async function runFakeCodex(args) {
+  const child = spawn(EXECUTABLE, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', (chunk) => { stdout += String(chunk); });
+  child.stderr.on('data', (chunk) => { stderr += String(chunk); });
+  const [code] = await once(child, 'close');
+  return { code, stdout, stderr };
+}
+
+test('fake Codex executable supports readiness and browser-login commands', async () => {
+  const status = await runFakeCodex(['login', 'status']);
+  assert.equal(status.code, 0, status.stderr);
+  assert.match(status.stdout, /Logged in/);
+
+  const login = await runFakeCodex(['login']);
+  assert.equal(login.code, 0, login.stderr);
+  assert.match(login.stdout, /browser login completed/);
+});
+
 test('fake Codex executable speaks the app-server lifecycle used by StashBase', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-fake-codex-'));
   const cwd = path.join(root, 'workspace');

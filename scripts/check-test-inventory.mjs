@@ -5,9 +5,13 @@
 // file that is not added to a script silently never runs anywhere — six
 // files drifted that way before this check existed. A file counts as wired
 // when some script names it verbatim or matches it through a glob token
-// (e.g. `web-src/src/__tests__/*.test.ts`). Playwright specs (*.spec.ts)
-// are collected by playwright.config.ts and Python tests by unittest
-// discovery, so neither needs this check.
+// (e.g. `web-src/src/__tests__/*.test.ts`, or the recursive
+// `'web-src/src/**/*.test.ts'` the renderer suite passes through to Node's
+// own discovery). A recursive glob wires everything beneath it, which is
+// the point of using one — the renderer's tests live beside the feature
+// that owns them, so enumerating them here would go stale on every move.
+// Playwright specs (*.spec.ts) are collected by playwright.config.ts and
+// Python tests by unittest discovery, so neither needs this check.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,12 +39,20 @@ for (const root of SCAN_ROOTS) {
   if (fs.existsSync(abs)) walk(abs);
 }
 
-const tokens = commands.flatMap((command) => command.split(/\s+/));
+// A glob reaching Node's runner is quoted so the shell forwards it intact.
+const tokens = commands
+  .flatMap((command) => command.split(/\s+/))
+  .map((token) => token.replace(/^['"]|['"]$/g, ''));
 const verbatim = new Set(tokens.filter((token) => TEST_FILE.test(token)));
 const globMatchers = tokens
   .filter((token) => token.includes('*'))
   .map((token) => new RegExp(
-    `^${token.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`,
+    `^${token
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      // `**` spans directories; a single `*` stops at the next separator.
+      .replace(/\*\*\//g, '\u0000')
+      .replace(/\*/g, '[^/]*')
+      .replace(/\u0000/g, '(?:[^/]+/)*')}$`,
   ));
 
 const missing = testFiles

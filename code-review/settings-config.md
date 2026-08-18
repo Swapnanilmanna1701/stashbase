@@ -12,9 +12,12 @@ settings. Renderer panels are Adapters over those routes; they do not own
 durable truth.
 Ambient capture is fail-closed: app config owns the opt-in, while Electron main
 only executes the current clipboard-monitoring state.
+Automatic desktop update checks are default-on: app config owns the preference,
+while Electron main reads it through the local route and owns the release
+runtime. Manual checks remain available when automatic checks are disabled.
 
-Managed Agent runtimes, models, derived data, and caches live under AppData and
-are not app-config fields. The built-in Chat agents' own configuration files
+Models, derived data, caches, and legacy managed Agent runtimes live under
+AppData and are not app-config fields. The built-in Chat agents' own configuration files
 are rewritten only by Agent readiness (`ensureAgentMcp`); StashBase never
 writes any other client's configuration — the MCP Settings page is a read-only
 access surface external clients copy from.
@@ -76,11 +79,25 @@ access surface external clients copy from.
   in the requesting window when that window is actually focused; otherwise the
   next focus event is the boundary. Turning it off stops polling and later
   offers; accepting a resulting import remains a separate user action.
+- Automatic update checking defaults on for missing, legacy, or invalid update
+  settings. Turning it off cancels future scheduled checks without cancelling
+  a download already requested by the user. Enabling it refreshes Electron from
+  server-owned durable truth; an automatic check never grants download or
+  installation. Clicking Update explicitly grants the bounded
+  download/install/relaunch operation. Dismissing the update banner is
+  renderer-local per announcement (version plus phase): it never changes the
+  persisted preference or an in-flight download, and a newer version or a
+  ready installer announces again.
+- Source Electron launches expose an in-memory update-state simulator beside
+  General Settings so maintainers can inspect the update banner and Settings
+  states without a release. The simulator never contacts the release channel,
+  downloads, installs, or changes the persisted update preference; packaged
+  builds reject simulation calls and never show the controls.
 - Migration is idempotent and loss-averse. Invalid legacy state must not erase
   a valid current value or silently select a different provider.
 - Updating configuration invalidates or reconciles only the dependent runtime:
   appearance updates the renderer, capture updates the Electron clipboard
-  monitor, embedding affects semantic readiness, transcription affects
+  monitor, update checks refresh the Electron update scheduler, embedding affects semantic readiness, transcription affects
   preparation, and MCP HTTP settings affect the listener. Ordinary browsing
   and exact search remain available on failure.
 
@@ -90,11 +107,14 @@ access surface external clients copy from.
 |---|---|
 | Persistent Interface | strict/fallback read and write plus domain getters/setters in `server/app-config.ts` |
 | Domain owners | `server/mcp-http-settings.ts`, `server/hosted-account.ts`, `server/hosted-embedding-broker.ts`, embedding and transcription configuration Modules |
-| HTTP Adapters | `server/routes/appearance.ts`, `capture.ts`, `onboarding.ts`, `account.ts`, `embedder.ts`, `transcription.ts`, `mcp.ts` |
-| Renderer Adapters | `web-src/src/components/SidebarAccountRow.tsx`, `components/account/AccountIdentity.tsx`, `SettingsModal.tsx`, `components/settings/GeneralPanel.tsx`, `AppearancePanel.tsx`, `EmbeddingPanel.tsx`, `TranscriptionPanel.tsx`, `McpAccessPanel.tsx`, `AgentRuntimePanel.tsx` |
-| Capture runtime Adapter | `web-src/src/hooks/useClipboardImageOffer.ts`, `electron/preload.cjs`, and the clipboard boundary in `electron/main.cjs` |
-| Appearance Adapter | `web-src/src/appearance.ts` |
-| Focused evidence | `server/app-config.test.ts`, `server/hosted-account.test.ts`, `server/__tests__/mcp-http-settings.test.ts`, `electron/clipboard-watch-policy.test.cjs`, renderer account/appearance/embedding tests, `e2e/smoke/settings.spec.ts`, and J04 in `e2e/journeys/preparation-capture.spec.ts` |
+| HTTP Adapters | `server/routes/appearance.ts`, `capture.ts`, `updates.ts`, `onboarding.ts`, `account.ts`, `embedder.ts`, `transcription.ts`, `mcp.ts` |
+| Renderer Adapters | `web-src/src/features/account/components/SidebarAccountRow.tsx`, `web-src/src/common/components/AccountIdentity.tsx`, and `web-src/src/features/settings/hooks/` — one controller per panel (`useGeneralSettings.ts`, `useEmbedderSettings.ts`, `useTranscriptionSettings.ts`, `useMcpAccess.ts`, `useAgentRuntimes.ts`, `useAppearanceSettings.ts`, `useApiKeyEntry.ts`), each owning its reads, its optimistic writes, and their ordering guards. The panels under `components/` render what a controller returns and hold only which dialog is open |
+| Authorization read | `web-src/src/common/hooks/useEmbedderState.ts` — shared with the Files-panel callout, which may not import this feature |
+| Appearance Adapter | `web-src/src/features/settings/lib/appearance.ts`, applied to a window by `hooks/useAppliedAppearance.ts` |
+| Capture runtime Adapter | `web-src/src/app/hooks/useClipboardImageOffer.ts`, `electron/preload.cjs`, and the clipboard boundary in `electron/main.cjs` |
+| Update runtime Adapter | `electron/update-manager.cjs`, `electron/main.cjs`, `electron/preload.cjs`, `web-src/src/common/hooks/useDesktopUpdate.ts`, and `web-src/src/common/components/DesktopUpdateBanner.tsx` — the hook and banner sit in `common/` because Settings and the sidebar account row both render update state, and a feature may not import a sibling |
+| Open-request Interfaces | `web-src/src/common/lib/settingsTrigger.ts` (Settings), `web-src/src/common/lib/embeddingSetupTrigger.ts` (AI Index setup), `web-src/src/common/lib/embeddingAuth.ts` (authorization and basic-mode facts) — shared so no surface reaches into the Settings feature to ask it to open |
+| Focused evidence | `server/app-config.test.ts`, `server/hosted-account.test.ts`, `server/__tests__/mcp-http-settings.test.ts`, `electron/clipboard-watch-policy.test.cjs`, `electron/update-manager.test.cjs`, renderer account/appearance/embedding tests, `web-src/src/common/__tests__/desktop-update-hook.test.ts`, `web-src/src/features/settings/__tests__/appearance.test.ts`, `web-src/src/common/__tests__/embedding-auth.test.ts`, `e2e/smoke/settings.spec.ts`, and J04 in `e2e/journeys/preparation-capture.spec.ts` |
 
 ## Validation
 
@@ -105,6 +125,7 @@ pnpm typecheck
 pnpm test:config
 pnpm test:mcp
 pnpm test:renderer
+pnpm test:updates
 ```
 
 Run `pnpm test:e2e:smoke` for Settings navigation, persisted appearance, or

@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'pnpm'
 
       - uses: actions/setup-python@v6
@@ -64,6 +64,12 @@ jobs:
 
       - name: Test macOS signing contract
         run: pnpm test:macos-signing
+
+      - name: Test optional Windows signing contract
+        run: pnpm test:windows-signing
+
+      - name: Test desktop update contracts
+        run: pnpm test:updates
 
       - name: Test application config and hosted account
         run: pnpm test:config
@@ -139,7 +145,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'pnpm'
 
       - uses: actions/setup-python@v6
@@ -213,7 +219,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'pnpm'
 
       - uses: actions/setup-python@v6

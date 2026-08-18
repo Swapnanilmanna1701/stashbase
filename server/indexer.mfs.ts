@@ -28,7 +28,7 @@ import { getSemanticIndexingDecision } from './state-db.ts';
 import type {
   EmbedderRuntimeConfig,
   Indexer,
-  IndexStatus,
+  IndexerStatus,
   SearchHit,
   SyncDiff,
 } from './indexer.ts';
@@ -385,7 +385,7 @@ export class MfsIndexer implements Indexer {
     return pending.size > 0 ? excludePausedPendingHits(hits, pending) : hits;
   }
 
-  async status(folder?: string): Promise<IndexStatus> {
+  async status(folder?: string): Promise<IndexerStatus> {
     // Per-folder status: ask the daemon directly. It owns both disk scan
     // and indexed-name truth, which keeps Node from maintaining a second
     // partial cache that can drift from the vector store.

@@ -12,7 +12,7 @@ app.setPath('userData', path.join(smokeRoot, 'tab-layout-electron-user-data'));
 
 const css = [
   fs.readFileSync(path.join(projectRoot, 'web-src', 'src', 'styles', 'globals.css'), 'utf8'),
-  fs.readFileSync(path.join(projectRoot, 'web-src', 'src', 'styles', 'mainpane.css'), 'utf8'),
+  fs.readFileSync(path.join(projectRoot, 'web-src', 'src', 'features', 'workspace', 'workspace.css'), 'utf8'),
 ].join('\n');
 
 const html = `<!doctype html>

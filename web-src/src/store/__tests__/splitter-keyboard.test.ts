@@ -8,7 +8,7 @@ import {
   SIDEBAR_MIN_WIDTH,
   resizeChatByKeyboard,
   resizeSidebarByKeyboard,
-} from '../stateHelpers';
+} from '@/store/state/stateHelpers';
 
 test('splitter key guard accepts only the supported cross-platform keys', () => {
   for (const key of ['ArrowLeft', 'ArrowRight', 'Home', 'End']) {

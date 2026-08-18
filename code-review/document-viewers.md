@@ -46,8 +46,14 @@ forwarding, and script confinement.
 
 - PDF uses source bytes and retains page position across tab activation. A
   programmatic smooth jump owns its requested page until the viewport reaches
-  it, so intermediate animation frames cannot overwrite the saved position.
-  Scale is bounded; worker and asset URLs retain window/folder identity.
+  it, so intermediate animation frames cannot overwrite the saved position; an
+  instant jump claims nothing and persists its page without waiting for the
+  passive page effect. Scale is bounded; worker and asset URLs retain
+  window/folder identity. The document is reopened only when the versioned
+  source URL changes — never because an application command object changed
+  identity. Preparation status and the Reprocess command are computed by the
+  viewer dispatch and passed in, so the PDF viewer performs no file mutation
+  and holds one scroll owner and no preparation state.
 - DOCX fetches source bytes, parses in a renderer Worker, sanitizes output, and
   falls back to durable prepared HTML after a `20 s` direct-preview deadline.
   Server preparation has its own `60 s` worker deadline.
@@ -75,12 +81,12 @@ forwarding, and script confinement.
 | Role | Stable entry points |
 |---|---|
 | Shared format vocabulary | `shared/file-formats.ts` and dispatch policy in `server/format.ts` |
-| Viewer dispatch | `web-src/src/components/MainPane.tsx` |
-| Primary viewers | `PdfPreview.tsx`, `DocxPreview.tsx`, `HtmlPreview.tsx`, `ImagePreview.tsx`, `ImageLightbox.tsx`, `AudioPreview.tsx`, `JsonDocument.tsx`, and the lazy `json/JsonTreeView.tsx` controller |
-| Preview-control Modules | `web-src/src/components/audio/`, `web-src/src/components/findIframe.ts`, `previewChunkHighlight.ts`, `pdfText.ts`, `pdfFindController.ts`, `web-src/src/lib/previewIframe.ts`, and `previewMessages.ts` |
-| Worker/Sanitizer Seam | `web-src/src/workers/docxPreview.worker.ts`, `shared/html-sanitization.ts` |
+| Viewer dispatch | `web-src/src/app/components/MainPane.tsx`, `web-src/src/features/documents/components/DocumentViewer.tsx` |
+| Primary viewers | `web-src/src/features/documents/components/PdfViewerPane.tsx` (the PDF dynamic entry, composing preparation policy onto the viewer) over `PdfPreview.tsx` with its `PdfChrome.tsx` / `PdfPage.tsx` presenters, `DocxPreview.tsx`, `HtmlPreview.tsx`, `ImagePreview.tsx`, `AudioPreview.tsx`, `JsonDocument.tsx`, the lazy `json/JsonTreeView.tsx` controller, and the shared `web-src/src/common/components/ImageLightbox.tsx` |
+| Preview-control Modules | `web-src/src/features/documents/hooks/usePdfDocument.ts`, `usePdfZoom.ts`, `usePdfPageTracking.ts`, `usePdfFindRegistration.ts`, `usePdfPreparation.ts`, `useFileReprocess.ts` (the Reprocess command and its stale-reply guard, shared by the PDF chrome row and the image and DOCX banners), `useAudioFallbackController.ts`, `useAudioTranscriptController.ts`, `web-src/src/features/documents/lib/audioPlayback.ts`, `audioTranscript.ts`, `findIframe.ts`, `previewChunkHighlight.ts`, `pdfText.ts`, `pdfFindController.ts`, `previewIframe.ts`, and `previewMessages.ts` |
+| Worker/Sanitizer Seam | `web-src/src/features/documents/workers/docxPreview.worker.ts`, `shared/html-sanitization.ts` |
 | Server asset/preparation Adapters | `/asset` and `/derived-asset` routes, `server/docx.ts`, media preparation Modules |
-| Focused evidence | `web-src/src/__tests__/pdf-text.test.ts`, `audio-playback.test.ts`, `audio-transcript.test.ts`, `json-document.test.ts`, `json-source-model.test.ts`, plus `e2e/journeys/formats-media.spec.ts` and `markdown-json.spec.ts` |
+| Focused evidence | `web-src/src/features/documents/__tests__/pdf-viewer.test.ts`, `pdf-text.test.ts`, `audio-playback.test.ts`, `audio-transcript.test.ts`, `json-document.test.ts`, `json-source-model.test.ts`, plus `e2e/journeys/formats-media.spec.ts` and `markdown-json.spec.ts` |
 
 ## Validation
 
