@@ -18,12 +18,21 @@
   suitable blank tab consumes it exactly once before reconnecting.
 - Runtime readiness gates Chat before transport connection. Failed gates use
   the structured preparation failure stage and advertised manual recovery:
-  installation can copy an install command, MCP can open manual setup, and
-  simulated failures can remain retry-only. Error prose never selects an
-  action.
+  installation can copy an install command, Codex authentication can start the
+  selected runtime's browser login, MCP can open manual setup, and simulated
+  failures can remain retry-only. Error prose never selects an action.
+  Installation and authentication failures retain a separate **Check again**
+  action; it calls the no-download discovery path so external recovery does not
+  silently grant installation consent or start another login.
 - Tab activation and history resume only select renderer state. A missing
   runtime remains on the setup gate until **Install and continue**; activation
   code must not call the preparation endpoint speculatively.
+- A validated `scope-changed` event may migrate only the same live
+  Library-scoped Chat that created a project. Update the tab binding before the
+  owning window enters the new member so the conversation stays selected;
+  other windows receive membership only. If folder entry fails, keep the new
+  project scope visible and report an actionable open failure rather than
+  reverting to an ambiguous Library presentation.
 
 ## Layout and Visibility
 
@@ -52,8 +61,14 @@
 - File and image context is explicit through mentions, selection, drag/drop, or
   composer-focused paste. Image paste suppresses the competing library-import
   offer and preserves accompanying text.
+- Transient attachment upload preserves the user-visible Unicode basename
+  by parsing multipart filename parameters as UTF-8. The server still
+  sanitizes and uniquifies every supplied display name before writing.
 - A selected skill appears as an inline display token and applies only to the
   next turn; it is not serialized as ordinary prompt text.
+- Text, an attachment, or a selected skill each make a draft sendable. The
+  send control's enablement and the submit path must decide that from one
+  predicate, so the button can never offer a send the composer refuses.
 
 ## Transcript and Turn Lifecycle
 
@@ -61,6 +76,13 @@
   jump-to-latest control appears.
 - A terminal failure creates at most one persistent turn explanation, preferring
   the runtime's specific message. Record it before advancing queued follow-ups.
+- A classified turn failure renders as a recovery card whose action follows the
+  adapter-assigned kind only (see the turn-failure contract in
+  [Agent Runtime](agent-runtime.md#protocol-boundary)); guidance copy and the
+  settle-then-auto-retry behavior live in
+  `web-src/src/features/agent-panel/lib/turnFailure.ts` and
+  `hooks/useAgentSession.ts`. The retry belongs to the card's own turn — the
+  nearest user prompt above the card, never the transcript's newest.
 - Completed thinking, interim narration, and tool activity fold under one
   working-trace header while the final answer remains visible. Interrupted work
   stays expanded. Resumed history has no invented duration.
@@ -102,12 +124,16 @@
 
 | Role | Stable entry points |
 |---|---|
-| Panel boundary | `web-src/src/components/ChatPane.tsx` and `AgentView.tsx` |
-| Transcript/composer Modules | `web-src/src/components/agent/AgentMessages.tsx`, `AgentComposer.tsx`, `MentionComposer.tsx`, and `SessionHistoryMenu.tsx` |
-| State Interfaces | Chat tab state/actions in `web-src/src/store/state.ts` and `stateReducer.ts`; activation consent in `components/agent/chatActivation.ts`; focused pure state Modules under `components/agent/` |
-| Runtime transport Adapter | connection URL/lifecycle Modules and `runtimeFailurePresentation.ts` under `components/agent/` over the normalized [Agent Runtime](agent-runtime.md) protocol |
-| Markdown Adapter | `web-src/src/components/agent/AgentMarkdown.tsx` |
-| Focused evidence | `web-src/src/__tests__/agent-*.test.ts`, `e2e/fixtures/fake-codex-app-server.test.mjs`, and `e2e/journeys/agent-panel.spec.ts` |
+| Panel boundary | `web-src/src/features/agent-panel/components/ChatPane.tsx` and `AgentView.tsx` |
+| Window-level catalog prime | `web-src/src/features/agent-panel/hooks/useAgentCatalogPrime.ts` — the one eager runtime read, called from `app/App.tsx` because every chat surface is lazy |
+| Sidebar entry points | `web-src/src/features/agent-panel/components/NewChatButton.tsx` (the split button, and the only reader of the next-chat agent preference) and `ScopeHistoryButton.tsx` (the per-scope history clock, which owns the `SessionHistoryMenu` lazy boundary). Both are exported from the feature barrel and merely placed by `app/components/Sidebar.tsx`; the sidebar holds no Agent logic of its own |
+| Session state Interface | `web-src/src/features/agent-panel/hooks/useAgentSession.ts` owns transport, event routing, and session reset/resume, and composes the focused sub-hooks beside it in `web-src/src/features/agent-panel/hooks/`. It returns those sub-hooks as owner-named groups (controls, queue, mentions, skills, runtime, transcript) rather than one flat surface; the transcript rules its events imply are pure Modules in `lib/transcriptEvents.ts` |
+| Transcript/composer Modules | `web-src/src/features/agent-panel/components/AgentMessages.tsx` owns the block list and turn layout over the pure turn model in `lib/turnModel.ts`, with the user half in `AgentUserTurn.tsx` and the tool surface in `AgentToolActivity.tsx`; `AgentComposer.tsx` owns the draft and its send predicate, with the suggestion popup in `MentionSuggestions.tsx` and the session pills in `ComposerPills.tsx`; `MentionComposer.tsx`, and `SessionHistoryMenu.tsx` over `hooks/useSessionHistory.ts`, which merges both agents' listings and routes a rename or delete through the row's own agent and scope |
+| State Interfaces | Chat tab state/actions in `web-src/src/store/state/state.ts` and `state/stateReducer.ts`; activation consent in the `activateChatTab` action (`store/contexts/AppContext.tsx`) over `store/lib/chatTabPlan.ts`; focused pure state Modules under `features/agent-panel/lib/` |
+| Runtime transport Adapter | connection URL/lifecycle Modules and `runtimeFailurePresentation.ts` under `features/agent-panel/lib/` over the normalized [Agent Runtime](agent-runtime.md) protocol |
+| Attachment HTTP Adapter | `web-src/src/common/api/api.ts` and `server/routes/attach.ts` |
+| Markdown Adapter | `web-src/src/features/agent-panel/components/AgentMarkdown.tsx` |
+| Focused evidence | `web-src/src/features/agent-panel/__tests__/agent-*.test.ts`, `e2e/fixtures/fake-codex-app-server.test.mjs`, and `e2e/journeys/agent-panel.spec.ts` |
 
 ## Validation
 
@@ -120,16 +146,18 @@ pnpm test:agent
 pnpm build:web
 ```
 
-Run `pnpm test:e2e:functional` for
-[J06](../design-docs/user-journeys.md#j06-start-and-continue-an-agent-chat)
-behavior and `pnpm test:e2e:visual` for covered composition changes. The
-fake Codex fixture's streamed-math journey deliberately sends consecutive
-text deltas followed immediately by turn completion: queued React state
-updates must use the stream boundary captured when each protocol event
-arrived; completion or tool events must not retroactively change how an
-earlier delta is accumulated. Real
-credentials, packaged discovery, and clipboard/native Seams remain in release
-sanity.
+Run `pnpm test:e2e:functional` for the affected Agent journey and
+`pnpm test:e2e:visual` for covered composition changes. Exact protocol fixture
+sequences belong in tests. Real credentials, packaged discovery, and
+clipboard/native Seams remain in release sanity.
+
+Related journeys: [J01](../design-docs/user-journeys.md#j01-complete-onboarding-and-reach-first-value),
+[J06](../design-docs/user-journeys.md#j06-start-and-continue-an-agent-chat), and
+[J07](../design-docs/user-journeys.md#j07-converge-chat-into-a-document), plus
+the [J10](../design-docs/user-journeys.md#j10-turn-a-local-project-into-durable-agent-assisted-work)
+core loop and
+[J11](../design-docs/user-journeys.md#j11-turn-a-conversation-into-a-project)
+for the Library-to-project session transition.
 
 Related contracts: [Agent Runtime](agent-runtime.md),
 [MCP Access](mcp-access.md), [Renderer Styling](renderer-styling.md), and

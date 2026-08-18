@@ -130,7 +130,7 @@ The main ownership seams are intentionally narrower than this map:
 
 | Role | Stable entry points |
 |---|---|
-| Renderer workspace Interface | `ActiveFolderWorkspace` in `web-src/src/store/useActiveFolderWorkspace.ts` |
+| Renderer workspace Interface | `ActiveFolderWorkspace` in `web-src/src/store/hooks/useActiveFolderWorkspace.ts` |
 | Window/context owners | `electron/main.cjs`, `electron/multi-window.cjs`, `server/folder.ts`, `server/routes/window-context.ts` |
 | Application server composition | `server/index.ts`, with focused behavior behind route and service Modules |
 | Data lifecycle Interfaces | `server/conversion-dispatch.ts`, `server/conversion-scheduler.ts`, `server/indexer.ts`, `server/mfs-daemon.ts` |
@@ -160,3 +160,7 @@ changes also run `pnpm test:electron` and `pnpm test:electron:smoke`; renderer
 boundary changes run `pnpm build:web`. Add the exact suites from every focused
 contract crossed by the change. Use [Journey Coverage](journey-coverage.md)
 before adding broad E2E coverage.
+
+Related journey: [J09](../design-docs/user-journeys.md#j09-prepare-and-hand-off-a-bug-report)
+for the bug-report review process boundary. Other architectural changes use the
+focused journey routes in [Journey Coverage](journey-coverage.md).

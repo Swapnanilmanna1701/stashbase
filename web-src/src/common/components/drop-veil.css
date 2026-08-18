@@ -1,0 +1,18 @@
+/* Global drag-file-in overlay. Relocated verbatim from styles/mainpane.css. */
+.drop-veil {
+  position: fixed;
+  inset: 0;
+  background: rgba(var(--accent-rgb), .06);
+  border: 2px dashed var(--accent);
+  pointer-events: none;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: calc(16px * var(--ui-scale));
+  z-index: 100;
+}
+
+.drop-veil.hot {
+  display: flex;
+}

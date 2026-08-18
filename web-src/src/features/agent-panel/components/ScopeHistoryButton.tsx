@@ -1,0 +1,94 @@
+import { Suspense, useRef, useState } from 'react';
+import { HistoryIcon } from '@/common/components/icons';
+import type { AgentKind } from '@/common/lib/agentCatalog';
+import { useAppActions } from '@/store/contexts/AppContext';
+import type { HistoryScope } from '@/common/lib/libraryScope';
+import { lazyWithRetry } from '@/common/components/ErrorBoundary';
+import { Button } from '@/common/components/ui/button';
+import { PopupLoadingStatus } from '@/common/components/ui/status';
+
+/* The popover carries react-aria, so it loads at the interaction
+ * boundary. The boundary lives here rather than in the feature barrel
+ * because this button is the menu's only caller — an export the barrel
+ * kept would be public API with nothing outside the feature reading it. */
+const SessionHistoryMenu = lazyWithRetry(() =>
+  import('@/features/agent-panel/components/SessionHistoryMenu').then((mod) => ({ default: mod.SessionHistoryMenu })));
+
+/** History clock on a sidebar scope header: opens the merged
+ *  session-history menu for that scope (both agents' sessions, newest
+ *  first). Picking a session records a pending resume in the store and
+ *  ensures a suitable chat tab is active (the New Chat blank-tab reuse
+ *  rule); that tab's AgentView consumes the request and resumes the
+ *  session within this scope. */
+export function ScopeHistoryButton({
+  scope,
+  label,
+  onOpenChange,
+}: {
+  scope: HistoryScope;
+  /** Accessible name + tooltip, e.g. "Chat history in Notes". */
+  label: string;
+  /** Lets the owning header hold its hover-revealed cluster visible
+   *  while the menu is open. */
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const { actions, dispatch } = useAppActions();
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  function setOpenReported(next: boolean) {
+    setOpen(next);
+    onOpenChange?.(next);
+  }
+
+  function resumeSession(agent: AgentKind, sessionId: string, folder: string | null) {
+    setOpenReported(false);
+    // The row's own scope, not the menu's: the all-scope history resumes
+    // each session in the folder (or library) it belongs to.
+    dispatch({
+      type: 'CHAT_RESUME_REQUEST',
+      resume: { agent, sessionId, folder },
+    });
+    actions.activateChatTab(agent);
+  }
+
+  const rect = open ? buttonRef.current?.getBoundingClientRect() : undefined;
+
+  return (
+    <>
+      <Button
+        ref={buttonRef}
+        variant="ghost"
+        size="icon-xs"
+        className="text-muted-foreground aria-expanded:bg-active aria-expanded:text-foreground"
+        title={label}
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpenReported(!open)}
+      >{/* Explicit size: icon-xs would otherwise render its own 12px
+          default, and every sidebar glyph is 14px. */}
+        <HistoryIcon className="size-3.5" /></Button>
+      {open && (
+        <Suspense
+          fallback={(
+            <PopupLoadingStatus
+              label="Opening history…"
+              left={rect?.left ?? 0}
+              top={(rect?.bottom ?? 0) + 4}
+              onCancel={() => setOpenReported(false)}
+            />
+          )}
+        >
+          <SessionHistoryMenu
+            scope={scope}
+            ariaLabel={label}
+            triggerRef={buttonRef}
+            onClose={() => setOpenReported(false)}
+            onResume={resumeSession}
+          />
+        </Suspense>
+      )}
+    </>
+  );
+}

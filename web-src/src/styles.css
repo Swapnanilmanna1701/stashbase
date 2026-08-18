@@ -1,16 +1,16 @@
 /* StashBase renderer CSS entry point.
  *
- * The legacy single file (~3000 lines) has been split by UI surface so
- * scoped edits don't churn unrelated regions. Vite resolves these CSS
- * @import statements at build time, inlining everything into one
- * stylesheet — no extra runtime requests. Edit the topic files in
- * `./styles/`; never add new rules here.
- *
- *   globals.css   — design tokens, body / #root, .app grid, common reset
- *   chat.css      — right-side chat panel (agent tabs) + agent picker
- *   sidebar.css   — left rail: tree, search, library row, banners
- *   mainpane.css  — main viewer / tabs / split / PDF + HTML + MD
- *                   previews / modals / settings / error boundary
+ * This file owns only what every feature depends on: Tailwind's layer
+ * setup/token bridge and the shared design tokens + reset in
+ * `styles/globals.css`. Everything else is colocated CSS owned by the
+ * feature or component it styles — imported directly from that
+ * component's .tsx file (e.g. `features/agent-panel/agent-panel.css` is
+ * imported from ChatPane.tsx, `features/workspace/workspace.css` from the
+ * components that render `.main` / `.tab-strip` / `.chat-splitter`
+ * / `.sidebar-splitter`). The app shell's own `.app` grid composition
+ * lives in `app/app-shell.css`, imported from `app/App.tsx`. Vite inlines
+ * every one of these into one stylesheet at build time — no extra runtime
+ * requests, same as when they were all `@import`ed from here.
  */
 /* Tailwind v4 is intentionally utility-only during the migration. Keeping
  * Preflight out avoids changing the established renderer reset underneath
@@ -158,6 +158,3 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 
 @import './styles/globals.css';
-@import './styles/chat.css';
-@import './styles/sidebar.css';
-@import './styles/mainpane.css';

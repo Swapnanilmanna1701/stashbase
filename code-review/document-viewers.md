@@ -5,6 +5,11 @@
 
 ## Viewer Contract
 
+- The [Documents format capability matrix](../design-docs/design/documents.md#format-capability-matrix)
+  owns the user-visible distinction among preview, Workbench authoring,
+  retrieval text, and Agent/MCP access. Viewer dispatch and affordances must
+  match it; previewability never implies content editing or text-readable MCP
+  access.
 - A viewer is selected from the visible source format and retains that source
   as tab identity. Prepared text is evidence and fallback, never a replacement
   tab.
@@ -21,8 +26,9 @@
 
 ## Trust Boundary
 
-Markdown, Agent Markdown, and DOCX-derived HTML are sanitized by their owning
-renderers. Viewer messages validate the expected frame Window before applying
+Markdown and Agent Markdown render structured node trees and never inject a
+raw HTML string; DOCX-derived HTML is sanitized by its owning renderer through
+`shared/html-sanitization.ts`. Viewer messages validate the expected frame Window before applying
 navigation, Find, or highlight events. HTTP(S) navigation goes through the
 system browser; relative source links stay within authorized library paths.
 
@@ -40,8 +46,14 @@ forwarding, and script confinement.
 
 - PDF uses source bytes and retains page position across tab activation. A
   programmatic smooth jump owns its requested page until the viewport reaches
-  it, so intermediate animation frames cannot overwrite the saved position.
-  Scale is bounded; worker and asset URLs retain window/folder identity.
+  it, so intermediate animation frames cannot overwrite the saved position; an
+  instant jump claims nothing and persists its page without waiting for the
+  passive page effect. Scale is bounded; worker and asset URLs retain
+  window/folder identity. The document is reopened only when the versioned
+  source URL changes — never because an application command object changed
+  identity. Preparation status and the Reprocess command are computed by the
+  viewer dispatch and passed in, so the PDF viewer performs no file mutation
+  and holds one scroll owner and no preparation state.
 - DOCX fetches source bytes, parses in a renderer Worker, sanitizes output, and
   falls back to durable prepared HTML after a `20 s` direct-preview deadline.
   Server preparation has its own `60 s` worker deadline.
@@ -49,7 +61,7 @@ forwarding, and script confinement.
   in the viewer library's Worker/WASM boundary. It is always `readOnly`, hides
   export/edit controls, keeps internal worksheet links local, makes every
   external cell/image/shape hyperlink inert, and disables the library's
-  automatic formula recalculation through the pinned pnpm patch. The renderer
+  automatic formula recalculation through the pinned package-manager patch. The renderer
   build guard rejects an unpatched install for either invariant. Fetch/parser state retires when the
   source version or tab changes. Its WASM and renderer code are packaged local
   assets and lazy dynamic entries; no CDN is permitted. The
@@ -78,12 +90,13 @@ forwarding, and script confinement.
 
 | Role | Stable entry points |
 |---|---|
-| Viewer dispatch | `web-src/src/components/MainPane.tsx` |
-| Primary viewers | `PdfPreview.tsx`, `DocxPreview.tsx`, `XlsxPreview.tsx`, `HtmlPreview.tsx`, `ImagePreview.tsx`, `ImageLightbox.tsx`, `AudioPreview.tsx`, `JsonDocument.tsx`, and the lazy `json/JsonTreeView.tsx` controller |
-| Preview-control Modules | `web-src/src/components/audio/`, `web-src/src/components/findIframe.ts`, `previewChunkHighlight.ts`, `pdfText.ts`, `pdfFindController.ts`, `web-src/src/lib/previewIframe.ts`, and `previewMessages.ts` |
-| Worker/Sanitizer Seam | `web-src/src/workers/docxPreview.worker.ts`, `shared/html-sanitization.ts` |
+| Shared format vocabulary | `shared/file-formats.ts` and dispatch policy in `server/format.ts` |
+| Viewer dispatch | `web-src/src/app/components/MainPane.tsx`, `web-src/src/features/documents/components/DocumentViewer.tsx` |
+| Primary viewers | `web-src/src/features/documents/components/PdfViewerPane.tsx` (the PDF dynamic entry, composing preparation policy onto the viewer) over `PdfPreview.tsx` with its `PdfChrome.tsx` / `PdfPage.tsx` presenters, `DocxPreview.tsx`, `XlsxPreview.tsx`, `HtmlPreview.tsx`, `ImagePreview.tsx`, `AudioPreview.tsx`, `JsonDocument.tsx`, the lazy `json/JsonTreeView.tsx` controller, and the shared `web-src/src/common/components/ImageLightbox.tsx` |
+| Preview-control Modules | `web-src/src/features/documents/hooks/usePdfDocument.ts`, `usePdfZoom.ts`, `usePdfPageTracking.ts`, `usePdfFindRegistration.ts`, `usePdfPreparation.ts`, `useFileReprocess.ts` (the Reprocess command and its stale-reply guard, shared by the PDF chrome row and the image and DOCX banners), `useAudioFallbackController.ts`, `useAudioTranscriptController.ts`, `web-src/src/features/documents/lib/audioPlayback.ts`, `audioTranscript.ts`, `findIframe.ts`, `previewChunkHighlight.ts`, `pdfText.ts`, `pdfFindController.ts`, `previewIframe.ts`, and `previewMessages.ts` |
+| Worker/Sanitizer Seam | `web-src/src/features/documents/workers/docxPreview.worker.ts`, `shared/html-sanitization.ts` |
 | Server asset/preparation Adapters | `/asset` and `/derived-asset` routes, `server/docx.ts`, media preparation Modules |
-| Focused evidence | `web-src/src/__tests__/pdf-text.test.ts`, `audio-playback.test.ts`, `audio-transcript.test.ts`, `json-document.test.ts`, `json-source-model.test.ts`, plus `e2e/journeys/formats-media.spec.ts` and `markdown-json.spec.ts` |
+| Focused evidence | `web-src/src/features/documents/__tests__/pdf-viewer.test.ts`, `pdf-text.test.ts`, `audio-playback.test.ts`, `audio-transcript.test.ts`, `json-document.test.ts`, `json-source-model.test.ts`, plus `e2e/journeys/formats-media.spec.ts` and `markdown-json.spec.ts` |
 
 The XLSX journey in `e2e/journeys/formats-media.spec.ts` exercises merged and
 frozen cells, rendered images and charts, cached formula display through copied
@@ -105,6 +118,12 @@ pnpm build:web
 Run `pnpm test:e2e:functional` for viewer selection, valid fixtures, failure
 identity, navigation, or Find changes. Packaged complex PDF/DOCX/media and
 native codec behavior remain release checks.
+
+Review at least one representative fixture for each behavior class rather than
+inferring every capability from one extension: editable prose, editable
+structured text, direct preview-only text, binary preview with prepared text,
+OCR image, and transcript media. Extension aliases remain lower-level format
+detection evidence.
 
 Related journeys: [J03](../design-docs/user-journeys.md#j03-read-and-edit-source-documents)
 and [J04](../design-docs/user-journeys.md#j04-prepare-a-hard-to-read-file).

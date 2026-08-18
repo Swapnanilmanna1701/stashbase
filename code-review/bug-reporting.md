@@ -13,7 +13,9 @@
   Opaque draft and artifact references identify resources but never authorize
   access.
 - The dedicated review window, its narrow preload, and its IPC handlers are
-  Adapters. The workspace sidebar and native Help menu are entry Adapters.
+  Adapters. The workspace sidebar and native Help menu are entry Adapters. The
+  sidebar entry is a secondary utility and may be replaced by an available
+  update action; native **Help → Report a Bug…** remains the durable entry.
 - The handoff Module accepts only a claimed approved snapshot. It does not
   accept renderer-provided paths, artifact lists, or report objects.
 
@@ -102,7 +104,7 @@ COLLECTING → REVIEWABLE → REVIEWING
 | Collection Modules | `electron/bug-report-screenshot.cjs`, `electron/bug-report-diagnostics.cjs`, `electron/bug-report-log.cjs`, `electron/bug-report-redaction.cjs` |
 | Approval/handoff Module | `electron/bug-report-handoff.cjs` |
 | Review-window Adapters | `electron/bug-report-review-window.cjs`, `electron/bug-report-review-ipc.cjs`, `electron/bug-report-review-preload.cjs` |
-| Presentation Adapters | `electron/bug-report-review-renderer.js`, `electron/bug-report-review.html`, `electron/bug-report-review.css`, `web-src/src/components/SidebarAccountRow.tsx`, and the native menu in `electron/main.cjs` |
+| Presentation Adapters | `electron/bug-report-review-renderer.js`, `electron/bug-report-review.html`, `electron/bug-report-review.css`, `web-src/src/features/account/components/SidebarAccountRow.tsx`, and the native menu in `electron/main.cjs` |
 | Focused evidence | `electron/bug-report-service.test.cjs`, `electron/bug-report-collection.test.cjs`, `electron/bug-report-redaction.test.cjs`, `electron/bug-report-handoff.test.cjs`, and `electron/bug-report-review.test.cjs` |
 
 ## Validation

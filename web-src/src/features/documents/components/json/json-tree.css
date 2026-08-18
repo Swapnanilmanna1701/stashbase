@@ -1,0 +1,36 @@
+/* JSON keeps one source-authoritative editor while the lazy tree is a bounded
+ * controller over source spans. These selectors intentionally avoid library
+ * globals so the viewer remains theme-native and reviewable. Relocated
+ * verbatim from styles/globals.css. */
+.json-document { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; background: var(--pane); }
+.json-view-mode { display: flex; align-items: center; gap: 4px; min-height: 36px; padding: 4px 72px 4px 20px; border-bottom: 1px solid var(--border); }
+.json-view-mode button, .json-tree button { border: 0; border-radius: var(--radius-control); padding: 4px 8px; color: var(--muted); background: transparent; }
+.json-view-mode button:hover:not(:disabled), .json-tree button:hover:not(:disabled), .json-view-mode button[aria-pressed="true"] { color: var(--fg); background: var(--hover); }
+.json-view-mode button:focus-visible, .json-tree button:focus-visible, .json-tree-row:focus-visible, .json-tree input:focus-visible, .json-tree textarea:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.json-view-mode button:disabled { opacity: .45; }
+.json-view-mode span { overflow: hidden; color: var(--muted); font-size: calc(12px * var(--ui-scale)); text-overflow: ellipsis; white-space: nowrap; }
+.json-source { min-height: 0; overflow: hidden; }
+.json-source > .cm-editor { height: 100%; }
+.json-tree { position: relative; display: grid; grid-template-rows: auto auto minmax(0, 1fr); min-height: 0; }
+.json-tree-search { display: flex; align-items: center; gap: 6px; padding: 8px 20px; border-bottom: 1px solid var(--border); }
+.json-tree-search label { flex: 1; }
+.json-tree-search input, .json-tree-editor input, .json-tree-editor textarea { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-control); padding: 6px 8px; color: var(--fg); background: var(--surface-base); font: inherit; }
+.json-tree-search span { color: var(--muted); font-size: calc(12px * var(--ui-scale)); white-space: nowrap; }
+.json-tree-scroll { min-height: 0; overflow: auto; padding: 10px 20px 72px; font-family: var(--font-mono, ui-monospace, monospace); }
+.json-tree-children { padding-left: 20px; border-left: 1px solid var(--border); }
+.json-tree-row { display: flex; align-items: center; min-height: 30px; gap: 8px; border-radius: var(--radius-control); padding: 2px 6px; }
+.json-tree-row[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.json-tree .json-tree-disclosure { width: 24px; padding: 2px; }
+.json-tree-leaf { width: 24px; color: var(--muted); text-align: center; }
+.json-tree-key { color: var(--syntax-json-property); }
+.json-tree-type { border-radius: var(--radius-container); padding: 1px 6px; color: var(--muted); background: var(--hover); font: calc(11px * var(--ui-scale)) var(--font-sans, sans-serif); }
+.json-tree-value { min-width: 0; overflow: hidden; color: var(--syntax-json-string); text-overflow: ellipsis; white-space: nowrap; }
+.json-tree-type-number + .json-tree-value { color: var(--syntax-json-number); }
+.json-tree-type-boolean + .json-tree-value, .json-tree-type-null + .json-tree-value { color: var(--syntax-json-boolean); }
+.json-tree-actions { display: flex; gap: 2px; margin-left: auto; opacity: 0; }
+.json-tree-row:hover .json-tree-actions, .json-tree-row:focus-within .json-tree-actions { opacity: 1; }
+.json-tree-error { padding: 8px 20px; color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.json-tree-editor { position: absolute; z-index: 2; right: 20px; bottom: 20px; display: grid; width: min(480px, calc(100% - 40px)); gap: 8px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-ui); background: var(--surface-base); box-shadow: var(--shadow-elevation); }
+.json-tree-editor label { display: grid; gap: 4px; color: var(--muted); font-size: calc(12px * var(--ui-scale)); }
+.json-tree-editor textarea { resize: vertical; font-family: var(--font-mono, ui-monospace, monospace); }
+.json-tree-unavailable, .json-tree-loading { padding: 48px 24px; color: var(--muted); text-align: center; }

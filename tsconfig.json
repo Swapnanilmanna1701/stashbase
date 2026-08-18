@@ -12,11 +12,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["web-src/src/*"]
-    }
+    "resolveJsonModule": true
   },
   "include": ["server/**/*.ts", "mcp/**/*.ts"]
 }

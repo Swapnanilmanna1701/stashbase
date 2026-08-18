@@ -1,0 +1,269 @@
+/* App shell: the root flex chain, the `.app` grid (sidebar | main |
+ * splitter | chat) and every state it responds to, the titlebar control
+ * band, and the two panel splitters. This is genuinely cross-feature
+ * composition — it expresses how the workspace's sidebar/tab-strip and
+ * the agent panel's chat-tab-row relate to ONE top-level layout owned by
+ * app/App.tsx, not a single feature. Relocated verbatim from
+ * styles/globals.css and styles/chat.css. */
+
+/* React mounts into #root — make IT the flex column so the `.app`
+ * grid (its only child; there is no titlebar strip above it) gets
+ * the full viewport. With this on `body` the flex chain breaks at
+ * #root (a plain block) and `.app` collapses to its content height
+ * (~200px). */
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* No dedicated titlebar, Cursor-style — in Electron with
+ * `hiddenInset` the macOS traffic lights (inset at x:14, y:12)
+ * float over the sidebar column instead. Every platform reserves
+ * the same 36px band at the window top (--titlebar-clearance): it
+ * hosts the shell's `.titlebar-controls` (sidebar toggle + search,
+ * TitlebarControls.tsx), and on macOS the `.sidebar-drag-zone`
+ * element overlaying it is the window drag region. (A real element,
+ * not ::before — Chromium ignores `-webkit-app-region` on
+ * pseudo-elements; the controls stay clickable via the global
+ * button no-drag rule.) One height everywhere keeps the layout
+ * identical across macOS windowed/fullscreen, Linux/Windows, and
+ * the browser — only the controls' left inset moves, clearing the
+ * lights when they are present. */
+.sidebar-drag-zone {
+  display: none;
+}
+
+/* The clearance lives INSIDE the panel (padding-top), never as
+ * padding on the .sidebar container — container padding would cut
+ * the sidebar's full-height border-r short of the window's top
+ * edge, which reads as a broken line whenever the window isn't
+ * maximized. */
+:root {
+  --titlebar-clearance: 36px;
+  --titlebar-controls-left: 8px;
+  /* The left cluster's width budget while the sidebar is collapsed:
+   * the switcher label truncates against it, and the tab rows below
+   * reserve exactly this much so the floating cluster never overlaps
+   * a tab (workspace.css tab-strip + agent-panel.css chat-tab-row
+   * share it). */
+  --titlebar-controls-collapsed-width: 200px;
+}
+
+/* Lights occupy ~x14–66; 88px leaves a clear group break so the
+ * controls read as their own cluster, not a fourth light. */
+body.is-electron.platform-darwin {
+  --titlebar-controls-left: 88px;
+}
+
+/* Fullscreen hides the lights (`.is-fullscreen` body class driven
+ * by Electron IPC via the preload) — the controls slide back to the
+ * window corner. */
+body.is-electron.platform-darwin.is-fullscreen {
+  --titlebar-controls-left: 8px;
+}
+
+/* Shell-level controls in the titlebar band. Absolute over the
+ * `.app` grid (NOT inside the panel columns) so collapsing either
+ * panel leaves its toggle in place — always the way back in.
+ * z-index above the sidebar drag zone (6) so they stay clickable on
+ * macOS. Left cluster: sidebar toggle + search; right cluster: the
+ * mirrored chat-panel toggle. */
+.titlebar-controls,
+.titlebar-controls-right {
+  position: absolute;
+  top: 0;
+  height: var(--titlebar-clearance);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 7;
+}
+
+.titlebar-controls {
+  left: var(--titlebar-controls-left);
+  /* Cap the cluster to the sidebar column: a long folder name in the
+   * switcher must ellipsize at the column edge, never bleed across
+   * the pane boundary onto the tab strip. The switcher's own spans
+   * carry min-width:0 + truncate, so the flex squeeze lands there.
+   * (Collapse keeps the stored --sidebar-width, so the cap holds.) */
+  max-width: calc(var(--sidebar-width) - var(--titlebar-controls-left) - 8px);
+}
+
+/* No traffic lights on the right on any platform — a plain corner
+ * inset mirrors the left cluster's fullscreen position. */
+.titlebar-controls-right {
+  right: 8px;
+}
+
+/* Chat closed: the right control floats over the MAIN pane's
+ * top-right — reserve the document tab strip's tail so tabs don't
+ * slide underneath it. (Chat open: the chat pane's own tab row
+ * carries the matching reserve — see ChatPane.tsx.) */
+.app:not(.chat-open) .tab-strip {
+  padding-right: 44px;
+}
+
+.sidebar-panel {
+  padding-top: var(--titlebar-clearance);
+}
+
+body.is-electron.platform-darwin .sidebar-drag-zone {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* GEOMETRY, not carve-outs: the zone stops where the titlebar
+   * controls begin. Chromium computes draggable regions as drag
+   * rects minus no-drag rects, and on windowed macOS those
+   * carve-outs proved intermittently stale — clicks on the whole
+   * control band died. A drag surface that never overlaps a control
+   * needs no carving. The band right of the controls stops being a
+   * drag handle; the tab strip remains the wide drag surface. */
+  width: var(--titlebar-controls-left);
+  height: 36px;
+  z-index: 6;
+  -webkit-app-region: drag;
+}
+
+body.is-electron.platform-darwin.is-fullscreen .sidebar-drag-zone {
+  display: none;
+}
+
+/* The tab strip's EMPTY background is the other drag surface — the
+ * strip spans the top of the main pane, so grabbing the gap after
+ * the last tab moves the window exactly like a titlebar. Tabs are
+ * draggable divs (in-strip reorder), so every interactive child
+ * opts out: `.tab` here, and buttons via the global no-drag list
+ * below. Fullscreen drops the region alongside the traffic-light
+ * clearance. */
+body.is-electron.platform-darwin .tab-strip {
+  -webkit-app-region: drag;
+}
+
+body.is-electron.platform-darwin.is-fullscreen .tab-strip {
+  -webkit-app-region: no-drag;
+}
+
+body.is-electron button,
+body.is-electron input,
+body.is-electron .tree-row,
+body.is-electron .tab,
+body.is-electron a,
+body.is-electron strong,
+/* The whole control clusters, not only their buttons: the titlebar
+ * band is a drag surface, and per-element carve-outs proved
+ * unreliable for the folder switcher on windowed macOS. */
+body.is-electron .titlebar-controls,
+body.is-electron .titlebar-controls-right {
+  -webkit-app-region: no-drag;
+}
+
+.app {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* Anchor for the absolutely-positioned `.sidebar-splitter`, which
+   * straddles the sidebar/main boundary without taking a grid track. */
+  position: relative;
+  /* Four columns always — sidebar | main | splitter | chat.
+   * Closed chat panel collapses its track to 0 instead of structurally
+   * adding/removing columns, so CSS can transition the width smoothly.
+   *
+   * Sidebar column = the user-resizable panel (`--sidebar-width`,
+   * driven from `state.sidebarWidth`); there is no activity rail.
+   * Collapsing shrinks the column to zero — the titlebar controls
+   * (shell-level, outside this column) remain the way back in. */
+  grid-template-columns: var(--sidebar-width, 280px) 1fr 0 0;
+  /* Explicit single-row track so .sidebar fills the height instead
+   * of shrinking to its content — the file list grows into the full
+   * column height and depends on the column being tall. */
+  grid-template-rows: minmax(0, 1fr);
+  transition: grid-template-columns var(--motion-standard) var(--motion-ease);
+}
+
+/* While dragging either splitter, the column must track the
+ * cursor instantly — the 220ms ease would otherwise lag behind the
+ * (instantly-positioned) splitter and open a blank gap. */
+.app.sidebar-dragging,
+.app.chat-dragging {
+  transition: none;
+}
+
+/* Panel collapsed — the sidebar column shrinks to zero. Keep the
+ * sidebar mounted (preserves selection / scroll state); shrinking
+ * the column + the sidebar's own overflow:hidden hides the panel
+ * without unmounting. The border-r would otherwise survive as a
+ * 1px sliver at the window edge, so it goes too. */
+.app.sidebar-collapsed {
+  grid-template-columns: 0 1fr 0 0;
+}
+
+.app.sidebar-collapsed .sidebar {
+  border-right: none;
+}
+
+/* Collapsed, the titlebar controls (and on macOS the traffic
+ * lights) float over the MAIN pane's top — indent the tab strip so
+ * tabs don't slide underneath them. Controls end at
+ * `--titlebar-controls-left` + two 28px buttons + gap. */
+.app.sidebar-collapsed .tab-strip {
+  padding-left: calc(var(--titlebar-controls-left) + var(--titlebar-controls-collapsed-width) + 8px);
+}
+/* Collapsed: the sidebar-width cap above no longer describes the
+ * space the cluster may use — clamp to the fixed collapsed budget
+ * (the min-width:0 chain squeezes the switcher label into ellipsis). */
+.app.sidebar-collapsed .titlebar-controls {
+  max-width: var(--titlebar-controls-collapsed-width);
+}
+
+/* Chat panel docked on the right. `--chat-width` normally reflects
+ * `state.chatWidth`; during a drag the splitter updates it directly
+ * so the heavy panes do not re-render until the final width persists.
+ * A thin splitter sits in its own grid column for a discrete target. */
+.app.chat-open {
+  grid-template-columns: var(--sidebar-width, 280px) 1fr 6px var(--chat-width, 480px);
+}
+.app.sidebar-collapsed.chat-open {
+  grid-template-columns: 0 1fr 6px var(--chat-width, 480px);
+}
+/* With no document, Chat is the workspace instead of a narrow side
+ * panel. The document pane remains mounted so switching back preserves
+ * editor state, but its track and splitter disappear. Compact windows
+ * reuse this shape when the user explicitly brings Chat over a document. */
+.app.chat-primary {
+  grid-template-columns: var(--sidebar-width, 280px) 0 0 minmax(0, 1fr);
+}
+.app.sidebar-collapsed.chat-primary {
+  grid-template-columns: 0 0 0 minmax(0, 1fr);
+}
+.app.chat-primary .main {
+  visibility: hidden;
+}
+
+/* Chat as the workspace with the sidebar collapsed: the shell starts
+ * at the window's left edge, so the titlebar controls (and on macOS
+ * the traffic lights) float over this tab row. Reserve their width
+ * the same way the document tab strip does — `.chat-tab-row` is the
+ * hook for exactly this. Any other layout keeps the shell to the
+ * right of something, so the row needs no inset. */
+.app.sidebar-collapsed.chat-primary .chat-tab-row {
+  padding-left: calc(var(--titlebar-controls-left) + var(--titlebar-controls-collapsed-width) + 8px);
+}
+
+/* Outer container — fills the 4th grid track. Holds the chat-tab
+ * strip + a body that overlays one agent panel per tab. Shared with
+ * App.tsx (grid placement + the lazy-chunk fallback aside), so it
+ * stays a named class. */
+.chat-pane-shell {
+  grid-column: 4;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  /* Canvas, not pane: the shell (chat tab row included) shares the
+   * chat surface so the panel reads as one sheet distinct from both
+   * the sidebar chrome and the document paper. */
+  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+}

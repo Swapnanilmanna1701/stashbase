@@ -9,25 +9,9 @@
  * operate in folder-relative terms translate at the route/files boundary;
  * the indexer and daemon key one global collection by absolute source path.
  */
+import type { SearchHit } from '../shared/search-results.ts';
 
-export interface SearchHit {
-  /** Absolute POSIX source path. */
-  fileName: string;
-  chunkIndex: number;
-  /** Indexed chunk body — already heading-prefixed for markdown / html. */
-  content: string;
-  /** Heading breadcrumb (`A › B › C`), or empty if the chunker didn't tag one. */
-  heading: string;
-  /** 1-based source-line offsets — useful for "jump to line N" UX. */
-  startLine?: number;
-  endLine?: number;
-  /** For hits remapped from a PDF-derived hidden markdown note:
-   *  best-known 1-based PDF page. Present when the derived note carries
-   *  page markers. */
-  pdfPage?: number;
-  /** Hybrid (RRF) score, higher = better. Scale is opaque; compare within a single response only. */
-  score: number;
-}
+export type { SearchHit } from '../shared/search-results.ts';
 
 export interface EmbedderRuntimeConfig {
   /** Supported embedding endpoints. OpenRouter is used only as an
@@ -112,7 +96,7 @@ export interface Indexer {
 
   /** Lightweight progress check — name-set diff only, no hashing.
    *  `folder?` scopes; omitted = whole library. */
-  status(folder?: string): Promise<IndexStatus>;
+  status(folder?: string): Promise<IndexerStatus>;
 
   /** Every file present in the index, keyed by absolute path with
    *  its stored content hash as value. `folder?` scopes to one folder;
@@ -143,7 +127,11 @@ export interface SyncDiff {
   renamed: Array<{ old: string; new: string; fileHash: string }>;
 }
 
-export interface IndexStatus {
+/** The indexer's own view of a folder. Narrower than, and not the same type
+ *  as, the `/api/index-status` HTTP response (`IndexStatus` in
+ *  `shared/index-status.ts`), which layers embedding availability,
+ *  conversion, and preparation state on top of this. */
+export interface IndexerStatus {
   /** Files on disk that look indexable. */
   total: number;
   /** Files on disk that already have rows in the index. */
@@ -156,16 +144,19 @@ export interface IndexStatus {
   orphanedCount: number;
   /** Full list of orphaned absolute paths. */
   orphaned: string[];
-  /** True iff pending = 0 and orphaned = 0. */
+  /** True iff pending = 0 and orphaned = 0. Computed over the unfiltered
+   *  lists above, so it can disagree with the visible pending count the
+   *  HTTP layer reports beside it. */
   upToDate: boolean;
-  /** False when semantic indexing/retrieval is unavailable, e.g. no API key. */
-  semanticEnabled?: boolean;
-  /** False while a configured hosted source is blocked by its shared quota. */
-  semanticAvailable?: boolean;
-  /** Human-readable reason when semantic indexing/retrieval is disabled. */
-  semanticDisabledReason?: string;
   /** False until the folder has received at least one daemon status response. */
-  indexReady?: boolean;
-  /** PDFs currently being converted to a readable note + bundle. */
-  pendingConversions?: string[];
+  indexReady: boolean;
 }
+
+/*
+ * Semantic availability, its disabled reason, and conversion progress are
+ * deliberately absent. They are HTTP-layer concerns that `buildIndexStatus`
+ * computes and puts on the response; no indexer knows them. They used to sit
+ * here unset, where the response's `...status` spread could have carried a
+ * stale `semanticDisabledReason` past the guard that only sets one when
+ * semantic is actually unavailable — a payload claiming both at once.
+ */

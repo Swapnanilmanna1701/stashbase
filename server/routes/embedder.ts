@@ -26,6 +26,7 @@ import {
 import { bootBindAllFolders, reconcileLibraryFolders, resetIndexerRuntime } from '../state.ts';
 import { sendError, validateEmbedderKey } from '../http.ts';
 import { hostedAccountState } from '../hosted-account.ts';
+import type { ApiKeySaveResult, EmbedderState } from '../../shared/embedding.ts';
 
 const log = logger('routes/embedder');
 
@@ -44,14 +45,15 @@ export function mount(app: express.Express): void {
     const cfg = getEmbedderConfig();
     const source = getEmbeddingSource();
     const account = await hostedAccountState(source === 'stashbase-account');
-    res.json({
+    const state: EmbedderState = {
       provider: cfg.provider,
       hasKey: !!cfg.apiKey,
       authorized: isEmbeddingConfigured(),
       source,
       model: cfg.model,
       account,
-    });
+    };
+    res.json(state);
   });
 
   // Set / rotate the active embedding key. A definite provider rejection
@@ -101,7 +103,7 @@ export function mount(app: express.Express): void {
       log.warn(`key set: runtime reset/rebind failed: ${errorMessage(err)}`);
     }
     const saved = getEmbedderConfig();
-    res.json({
+    const result: ApiKeySaveResult = {
       hasKey: true,
       authorized: true,
       source: saved.provider,
@@ -109,7 +111,8 @@ export function mount(app: express.Express): void {
       model: saved.model,
       backfillStarted: shouldBackfill,
       ...(warning ? { warning } : {}),
-    });
+    };
+    res.json(result);
   });
 
   app.put('/api/embedder/source', async (req, res) => {

@@ -13,6 +13,18 @@ import { agentBootstrapStatus } from './agent-runtime-installer.ts';
 import { ensureAgentMcp } from './agent-mcp.ts';
 import { filesystemPath } from './filesystem-path.ts';
 
+/** The renderer↔server wire vocabulary lives in `shared/agent-protocol.ts` so
+ * the renderer can import it without pulling this module's server-only graph
+ * (`ws`, the CLI resolvers, the runtime installer) into the browser bundle.
+ * Re-exported here so server-side callers keep one import site for the whole
+ * contract. */
+export type {
+  AgentClientEvent,
+  AgentModel,
+  AgentServerEvent,
+  AgentSkill,
+} from '../shared/agent-protocol.ts';
+
 export type AgentId = 'claude' | 'codex';
 export type AgentRuntimeState = 'available' | 'unavailable' | 'failed';
 export const AGENT_ACCESS_MODES = ['default', 'acceptEdits', 'plan', 'auto'] as const;
@@ -146,48 +158,6 @@ export function resolveSessionBinding(options: {
   if (options.currentFolder) return { cwd: options.currentFolder, libraryScoped: false };
   return { cwd: options.folderHome, libraryScoped: true };
 }
-
-/** A model is always advertised by the native runtime, never a StashBase list. */
-export interface AgentModel {
-  id: string;
-  label: string;
-  description?: string;
-  supportedEfforts?: string[];
-}
-export interface AgentSkill { id: string; label: string; description?: string; argumentHint?: string }
-
-/** The stable panel wire protocol. Adapters may translate native events,
- * but they must only emit this transcript and lifecycle vocabulary. */
-export type AgentClientEvent =
-  | { t: 'prompt'; text: string; titleHint?: string; skill?: string }
-  | { t: 'refresh-skills' }
-  | { t: 'steer'; id: string; text: string }
-  | { t: 'permission-reply'; id: string; allow: boolean; always?: boolean }
-  | { t: 'interrupt' }
-  | { t: 'close' }
-  | { t: 'set-mode'; mode: string };
-
-export type AgentServerEvent =
-  | { t: 'ready' }
-  | { t: 'session-id'; id: string }
-  | { t: 'session-title'; title: string }
-  | { t: 'models'; models: AgentModel[]; activeModel?: string; fallback?: string }
-  | { t: 'skills'; skills: AgentSkill[]; state: 'available' | 'empty' | 'failed'; error?: string }
-  | { t: 'turn-start' }
-  | { t: 'text'; delta: string }
-  | { t: 'thinking'; delta: string }
-  | { t: 'tool'; id: string; name: string; input: Record<string, unknown> }
-  | { t: 'tool-delta'; id: string; delta: string }
-  | { t: 'tool-result'; id: string; content: string; isError: boolean }
-  | { t: 'permission'; id: string; toolUseId: string; name: string; title: string | null; input: Record<string, unknown> }
-  | { t: 'steer-result'; id: string; ok: boolean; message?: string }
-  /** The server migrated this session's scope binding (create_project
-   * rebinding a library-scoped chat to the new project). The renderer
-   * updates its connected scope and the owning window selects the folder. */
-  | { t: 'scope-changed'; scope: { kind: 'folder'; path: string } }
-  | { t: 'turn-end'; isError: boolean }
-  | { t: 'error'; message: string }
-  | { t: 'exit'; message?: string };
 
 export interface AgentHistoryActions {
   list(folder: string | null): Promise<unknown[]>;

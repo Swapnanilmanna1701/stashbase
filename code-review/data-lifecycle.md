@@ -97,6 +97,11 @@ search; only explicit Start clears it.
 
 ## Freshness and Visibility
 
+- Format dispatch must preserve the product capability classes in the
+  [Documents matrix](../design-docs/design/documents.md#format-capability-matrix).
+  Direct-text sources remain usable without durable Preparation; prepared-text
+  sources become readable only through current, format-owned output; a
+  preview-only surface never changes either classification.
 - A newly queued source invalidates stale final output immediately, then the
   extractor repeats cleanup at execution.
 - Content-addressed prepared output carries the source hash into the indexing
@@ -172,7 +177,8 @@ of the resource tradeoff.
 | Scheduling Interface | `ConversionScheduler` in `server/conversion-scheduler.ts` |
 | Format dispatch Interface | `server/conversion-dispatch.ts` and `server/conversion.ts` |
 | Reconcile owner | `server/sync.ts`, `server/state.ts`, `server/semantic-workload.ts` |
-| Index Interface | `server/indexer.ts`, implemented by `server/indexer.mfs.ts` |
+| Index Interface | `IndexerStatus` and the rest of `server/indexer.ts`, implemented by `server/indexer.mfs.ts` |
+| Folder status contract | `IndexStatus` in `shared/index-status.ts`, built by `buildIndexStatus` in `server/index-status.ts` — a superset of `IndexerStatus`, not the same type |
 | Daemon Adapter | `server/mfs-daemon.ts` ↔ `python/stashbase_daemon.py` |
 | Retrieval Interface | `server/retrieval/index.ts`, with keyword, semantic, and evidence Modules beside it |
 | Format owners | PDF, OCR, DOCX, XLSX, and audio Modules under `server/` plus their native/Python/WASM Adapters |
@@ -205,6 +211,13 @@ pnpm test:python
 Add `pnpm test:library-files` for mutation/reconcile changes and
 `pnpm test:electron:smoke` when native process or store retirement changes.
 
-Related journey: [J04](../design-docs/user-journeys.md#j04-prepare-a-hard-to-read-file).
+Related journeys: [J02](../design-docs/user-journeys.md#j02-add-and-open-a-folder),
+[J04](../design-docs/user-journeys.md#j04-prepare-a-hard-to-read-file),
+[J05](../design-docs/user-journeys.md#j05-search-and-open-source-evidence), and
+[J08](../design-docs/user-journeys.md#j08-connect-an-external-agent-through-mcp),
+plus the [J10](../design-docs/user-journeys.md#j10-turn-a-local-project-into-durable-agent-assisted-work)
+core loop and
+[J11](../design-docs/user-journeys.md#j11-turn-a-conversation-into-a-project)
+for registration and initial sync of an Agent-created member.
 Related contracts: [File Transactions](file-transactions.md),
 [MCP Access](mcp-access.md), and [Release Pipeline](release-pipeline.md).

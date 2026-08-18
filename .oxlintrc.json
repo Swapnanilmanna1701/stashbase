@@ -1,0 +1,129 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "import", "jsx-a11y"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/exhaustive-deps": "warn",
+    "import/no-unassigned-import": "off",
+    "import/default": "off",
+    "eslint/no-await-in-loop": "off",
+
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/aria-activedescendant-has-tabindex": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/control-has-associated-label": "warn",
+    "jsx-a11y/img-redundant-alt": "warn",
+    "jsx-a11y/interactive-supports-focus": "warn",
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/media-has-caption": "warn",
+    "jsx-a11y/no-autofocus": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-to-interactive-role": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/role-has-required-aria-props": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["web-src/src/common/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/", "message": "common/ is the feature-agnostic leaf layer: it must not import from features/. Promote what both need into common/, or move this module up a layer." },
+          { "regex": "^@/store/", "message": "common/ is the feature-agnostic leaf layer: it must not import from store/ (store already imports common/, so this would be a cycle). A store-connected module belongs in store/, features/, or app/." },
+          { "regex": "^@/app/", "message": "common/ must not import from app/. app/ is the composition root and sits above every other layer." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/store/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/", "message": "store/ may depend only on common/. Promote shared vocabulary into common/ or store/lib/ instead of reaching into a feature." },
+          { "regex": "^@/app/", "message": "store/ must not import from app/. app/ is the composition root and sits above every other layer." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/account/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(agent-panel|documents|preparation|search|settings|workspace)/", "message": "features/account must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/agent-panel/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(account|documents|preparation|search|settings|workspace)/", "message": "features/agent-panel must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/documents/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(account|agent-panel|preparation|search|settings|workspace)/", "message": "features/documents must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/preparation/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(account|agent-panel|documents|search|settings|workspace)/", "message": "features/preparation must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/search/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(account|agent-panel|documents|preparation|settings|workspace)/", "message": "features/search must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/settings/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(account|agent-panel|documents|preparation|search|workspace)/", "message": "features/settings must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/features/workspace/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/(account|agent-panel|documents|preparation|search|settings)/", "message": "features/workspace must not import a sibling feature. Promote what both need into common/ (pure or presentational) or store/ (state-shaped), or let app/ compose them." },
+          { "regex": "^@/app/", "message": "A feature must not import from app/. app/ composes features, never the other way round." }
+        ]}]
+      }
+    },
+    {
+      "files": ["web-src/src/app/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [
+          { "regex": "^@/features/[^/]+/.+", "message": "app/ may import a feature only through its barrel: use '@/features/<area>'. If what you need is not exported there, add it to that feature's index.ts (or give it a proper entry point) rather than reaching into the feature's internals." }
+        ]}]
+      }
+    },
+    {
+      "files": ["**/__tests__/**"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "react/no-children-prop": "off"
+      }
+    }
+  ]
+}

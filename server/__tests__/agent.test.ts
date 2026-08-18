@@ -111,6 +111,65 @@ function claudeSuccessResult(): SDKMessage {
   } as unknown as SDKMessage;
 }
 
+function streamingClaudeQuery(prompt: AsyncIterable<unknown>, sessionId = 'test-session'): Query {
+  async function* stream() {
+    yield {
+      type: 'system', subtype: 'init', session_id: sessionId, model: 'native-model',
+    } as unknown as SDKMessage;
+    for await (const _message of prompt) {
+      yield { ...claudeSuccessResult(), session_id: sessionId } as unknown as SDKMessage;
+    }
+  }
+  return Object.assign(stream(), {
+    supportedModels: async () => [],
+    supportedCommands: async () => [],
+    setModel: async () => {},
+    setPermissionMode: async () => {},
+    interrupt: async () => {},
+  }) as unknown as Query;
+}
+
+test('Claude project rebind resumes the same native session from the project cwd', async (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-claude-rebound-'));
+  t.after(() => fs.rmSync(project, { recursive: true, force: true }));
+  const starts: Array<{ cwd?: string; resume?: string }> = [];
+  const ws = new FakeAgentWebSocket();
+  const session = new AgentSession(
+    ws as unknown as WebSocket,
+    'claude-rebound-window',
+    undefined,
+    undefined,
+    'default',
+    undefined,
+    undefined,
+    ((request: { prompt: AsyncIterable<unknown>; options: { cwd?: string; resume?: string } }) => {
+      starts.push({ cwd: request.options.cwd, resume: request.options.resume });
+      return streamingClaudeQuery(request.prompt, 'native-rebound');
+    }) as never,
+    () => '/fake/claude',
+    undefined,
+    undefined,
+    'library',
+  );
+  t.after(() => session.dispose());
+
+  session.begin();
+  await settle();
+  ws.emit('message', JSON.stringify({ t: 'prompt', text: 'create the project' }));
+  await settle();
+  assert.equal(session.nativeSessionId(), 'native-rebound');
+
+  assert.equal(session.rebindToFolder(project), true);
+  ws.emit('message', JSON.stringify({ t: 'prompt', text: 'continue in the project' }));
+  await settle();
+  await settle();
+
+  assert.equal(starts.length, 2);
+  assert.equal(starts[1]?.cwd, project);
+  assert.equal(starts[1]?.resume, 'native-rebound');
+  assert.equal(session.nativeSessionId(), 'native-rebound');
+});
+
 function claudeRetryMessage(): SDKMessage {
   return {
     type: 'system',
@@ -574,6 +633,53 @@ test('Claude final errors are normalized, bounded, and ordered before turn-end',
   assert.deepEqual(turn.turnEvents(), [
     { t: 'turn-start' },
     { t: 'error', message: expectedMessage },
+    { t: 'turn-end', isError: true },
+  ]);
+});
+
+test('Claude classified turn failures carry their failure kind', async (t) => {
+  const turn = await startScriptedClaudeTurn(t, 'claude-classified-window', [
+    claudeErrorResult('error_during_execution', ['Invalid API key · Please run /login']),
+  ]);
+
+  turn.releaseMessages();
+  await settle();
+
+  assert.deepEqual(turn.turnEvents(), [
+    { t: 'turn-start' },
+    { t: 'error', message: 'Invalid API key · Please run /login', failure: { kind: 'auth-expired' } },
+    { t: 'turn-end', isError: true },
+  ]);
+});
+
+test('Claude signed-out result surfaces the provider text with its failure kind', async (t) => {
+  // Observed live shape: a signed-out CLI reports is_error with subtype
+  // 'success', NO errors array, and the real cause only in `result`.
+  const turn = await startScriptedClaudeTurn(t, 'claude-signed-out-window', [
+    {
+      type: 'result',
+      subtype: 'success',
+      is_error: true,
+      result: 'Not logged in · Please run /login',
+      duration_ms: 56,
+      duration_api_ms: 0,
+      num_turns: 1,
+      stop_reason: 'stop_sequence',
+      total_cost_usd: 0,
+      usage: { input_tokens: 0, output_tokens: 0 },
+      modelUsage: {},
+      permission_denials: [],
+      uuid: 'test-signed-out',
+      session_id: 'test-session',
+    } as unknown as SDKMessage,
+  ]);
+
+  turn.releaseMessages();
+  await settle();
+
+  assert.deepEqual(turn.turnEvents(), [
+    { t: 'turn-start' },
+    { t: 'error', message: 'Not logged in · Please run /login', failure: { kind: 'auth-expired' } },
     { t: 'turn-end', isError: true },
   ]);
 });

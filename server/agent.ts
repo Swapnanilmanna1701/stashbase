@@ -6,8 +6,10 @@
  * panel instead of a terminal. One session per chat tab. Every session
  * is pinned to an explicit scope at connect time — a member folder (its
  * cwd) or the whole library (cwd = the folder home) — so a window-folder
- * switch leaves it running; teardown happens on window close, library
- * folder removal (folder-bound sessions only), and app quit.
+ * switch leaves it running. The one deliberate scope transition is an
+ * attributed Library Chat creating a project; its next native prompt resumes
+ * from that project cwd. Teardown happens on window close, library folder
+ * removal (folder-bound sessions only), and app quit.
  *
  * Auth: the SDK reads the same credential store the user's `claude`
  * login populated (Keychain / `~/.claude`), so a Pro/Max subscription
@@ -30,7 +32,7 @@
  *     { t: "tool-result", id, content, isError }       // its result
  *     { t: "permission", id, toolUseId, name, title, input }  // needs approve/reject
  *     { t: "turn-end", isError }                       // result message
- *     { t: "error", message }
+ *     { t: "error", message, failure? }                // failure = classified turn-failure kind
  *     { t: "exit", message? }                          // normal or fatal session end
  */
 import { randomUUID } from 'node:crypto';
@@ -65,6 +67,12 @@ import {
   type AttributedAgentSession,
 } from './agent-session-registry.ts';
 import { agentSessionFolderOverride } from './agent-session-folders.ts';
+import {
+  consumeAgentTurnFailure,
+  simulatedTurnFailureScript,
+  type AgentTurnFailureSimulation,
+} from './agent-runtime-paths.ts';
+import { agentTurnErrorEvent } from './agent-turn-failure.ts';
 import { detectViewerFormat } from './format.ts';
 import { isAgentReadableDerivedTextReady } from './library-file-reader.ts';
 
@@ -278,12 +286,13 @@ export class AgentSession implements AttributedAgentSession {
    *  never tears it down (window close / app quit still do). */
   private libraryScoped = false;
   /** Member folder this LIBRARY session was migrated to by `create_project`.
-   *  The native cwd stays the folder home (the SDK session keeps running);
-   *  the binding, teardown scope, and history override follow this. */
+   *  The next prompt resumes the same native session from this cwd; binding,
+   *  teardown scope, and history move immediately. */
   private rebound: string | null = null;
   private models: AgentModel[] = [];
   private skills = new Set<string>();
   private pumpTask: Promise<void> | null = null;
+  private nativeMigrationTask: Promise<void> | null = null;
   private retirementTask: Promise<void> | null = null;
 
   constructor(
@@ -341,11 +350,9 @@ export class AgentSession implements AttributedAgentSession {
     return this.sessionId;
   }
 
-  /** Migrate this LIBRARY-scoped session's binding to a member folder
-   *  (create_project). The native SDK session keeps running with its
-   *  original cwd; only the StashBase-side binding moves, and the renderer
-   *  is told so the pill and the owning window's sidebar can follow. A
-   *  folder-bound chat is never rebound. */
+  /** Migrate this LIBRARY-scoped session to a member folder (create_project).
+   *  The current turn finishes in the library process; the next prompt
+   *  resumes the same native session from the project cwd. */
   rebindToFolder(folderAbs: string): boolean {
     if (this.closed || !this.isLibraryScoped()) return false;
     this.rebound = folderAbs;
@@ -366,7 +373,8 @@ export class AgentSession implements AttributedAgentSession {
     if (this.closed) return;
     // An explicit folder pins the session; an explicit library scope (or
     // no folder anywhere) binds the folder home as the reserved library
-    // cwd — either way the binding never changes later.
+    // cwd. Ordinary window navigation never changes it; an attributed
+    // create_project transition is the one deliberate exception.
     const binding = resolveSessionBinding({
       scope: this.scope,
       folder: this.folder,
@@ -416,7 +424,29 @@ export class AgentSession implements AttributedAgentSession {
     // folder's headless session hangs at "working" with no visible prompt.
     ensureClaudeFolderTrust(cwd);
     try {
-      this.q = this.queryFactory({
+      this.q = this.createNativeQuery(cwd, this.resume, this.libraryScoped ? 'library' : 'folder', claudeCodeExecutable);
+    } catch (err: unknown) {
+      reportAgentRuntimeFailure('claude', err);
+      this.finish(errorMessage(err));
+      return;
+    }
+    if (this.closed) {
+      void this.q?.interrupt().catch(() => { /* already disposed */ });
+      return;
+    }
+    await this.publishModels();
+    await this.publishSkills();
+    this.send({ t: 'ready' });
+    this.pumpTask = this.pump(this.q);
+  }
+
+  private createNativeQuery(
+    cwd: string,
+    resume: string | undefined,
+    scope: 'library' | 'folder',
+    claudeCodeExecutable: string,
+  ): Query {
+    return this.queryFactory({
         prompt: this.input,
         options: {
           cwd,
@@ -431,12 +461,12 @@ export class AgentSession implements AttributedAgentSession {
           // `instructions` field + an optional library_info call). Inject that
           // deterministically as a system-prompt append. See
           // agent-preamble.ts and architecture.md §8.4.
-          systemPrompt: { type: 'preset', preset: 'claude_code', append: buildStashbasePreamble(cwd, this.libraryScoped ? 'library' : 'folder') },
+          systemPrompt: { type: 'preset', preset: 'claude_code', append: buildStashbasePreamble(cwd, scope) },
           // Resuming a past session loads its conversation history so the
           // user can continue it. The transcript itself is rendered from
           // getSessionMessages on the client; `resume` only primes the SDK
           // to append to the same session_id rather than start a new one.
-          ...(this.resume ? { resume: this.resume } : {}),
+          ...(resume ? { resume } : {}),
           // Thinking depth (low … max). The SDK has no live setter for this
           // (unlike permissionMode), so it's fixed for the session's lifetime
           // — the renderer reconnects to change it. Omit → SDK default ('high').
@@ -465,19 +495,6 @@ export class AgentSession implements AttributedAgentSession {
           stderr: (d: string) => log.debug(d),
         },
       });
-    } catch (err: unknown) {
-      reportAgentRuntimeFailure('claude', err);
-      this.finish(errorMessage(err));
-      return;
-    }
-    if (this.closed) {
-      void this.q?.interrupt().catch(() => { /* already disposed */ });
-      return;
-    }
-    await this.publishModels();
-    await this.publishSkills();
-    this.send({ t: 'ready' });
-    this.pumpTask = this.pump();
   }
 
   /** Ask the SDK rather than encoding Claude aliases or release names here.
@@ -516,18 +533,18 @@ export class AgentSession implements AttributedAgentSession {
   }
 
   /** Drain the SDK message stream until it ends or errors. */
-  private async pump(): Promise<void> {
-    if (!this.q) return;
+  private async pump(query: Query): Promise<void> {
     let failure: string | undefined;
     try {
-      for await (const msg of this.q) this.onSdkMessage(msg);
+      for await (const msg of query) this.onSdkMessage(msg);
       if (!this.closed) failure = 'Claude session ended unexpectedly.';
     } catch (err: unknown) {
-      if (!this.closed) {
+      if (!this.closed && query === this.q) {
         reportAgentRuntimeFailure('claude', err);
         failure = errorMessage(err);
       }
     }
+    if (query !== this.q) return;
     this.finish(failure);
   }
 
@@ -641,6 +658,14 @@ export class AgentSession implements AttributedAgentSession {
           finalMessage = finalMessage.slice(0, 2000);
         }
       } else {
+        // A signed-out or API-refused run reports `is_error` with NO errors
+        // array and a non-error subtype ('success'): the only provider text
+        // is the `result` string (e.g. "Not logged in · Please run /login").
+        // Surface it so classification can name the real recovery instead of
+        // the generic fallback.
+        const resultText = typeof (msg as { result?: unknown }).result === 'string'
+          ? ((msg as { result: string }).result).trim()
+          : '';
         const subtype = msg.subtype;
         if (subtype === 'error_max_turns') {
           finalMessage = 'Claude stopped after reaching the maximum number of turns.';
@@ -648,13 +673,15 @@ export class AgentSession implements AttributedAgentSession {
           finalMessage = 'Claude stopped after reaching the configured budget.';
         } else if (subtype === 'error_max_structured_output_retries') {
           finalMessage = 'Claude could not produce the requested structured response.';
+        } else if (resultText) {
+          finalMessage = resultText.slice(0, 2000);
         } else {
           finalMessage = 'Claude failed before completing the turn.';
         }
       }
 
       if (finalMessage) {
-        this.send({ t: 'error', message: finalMessage });
+        this.sendTurnError(finalMessage);
       }
     }
 
@@ -697,6 +724,55 @@ export class AgentSession implements AttributedAgentSession {
     });
   }
 
+  private enqueuePrompt(body: string, skill?: string): void {
+    this.input.push({
+      type: 'user',
+      message: { role: 'user', content: claudeSkillPrompt(body, skill) },
+      parent_tool_use_id: null,
+    } as SDKUserMessage);
+  }
+
+  private async migrateAndEnqueuePrompt(body: string, skill?: string): Promise<void> {
+    try {
+      const target = this.rebound;
+      const resume = this.sessionId;
+      if (!target || !resume) throw new Error('The project scope is not ready yet. Try again.');
+
+      const previousQuery = this.q;
+      const previousPump = this.pumpTask;
+      this.q = null;
+      this.pumpTask = null;
+      this.input.end();
+      if (previousPump) {
+        await previousPump;
+      } else if (previousQuery) {
+        try { await previousQuery.return(undefined); } catch { /* already retired */ }
+      }
+      if (this.closed) return;
+
+      const claudeCodeExecutable = this.resolveBinary();
+      if (!claudeCodeExecutable) throw new Error(missingClaudeMessage());
+      if (ensureClaudeBridgeFile(target)) noteTreeChanged();
+      ensureClaudeFolderTrust(target);
+
+      this.input = new Pushable<SDKUserMessage>();
+      const nextQuery = this.createNativeQuery(target, resume, 'folder', claudeCodeExecutable);
+      this.q = nextQuery;
+      this.cwd = target;
+      this.libraryScoped = false;
+      await this.publishSkills();
+      if (this.closed || this.q !== nextQuery) return;
+      this.pumpTask = this.pump(nextQuery);
+      this.enqueuePrompt(body, skill);
+    } catch (err: unknown) {
+      if (this.closed) return;
+      reportAgentRuntimeFailure('claude', err);
+      this.turnActive = false;
+      this.sendTurnError(errorMessage(err));
+      this.send({ t: 'turn-end', isError: true });
+    }
+  }
+
   private onMessage(text: string): void {
     let msg: AgentClientEvent;
     try { msg = JSON.parse(text); } catch { return; }
@@ -710,15 +786,23 @@ export class AgentSession implements AttributedAgentSession {
         // terminal event. Refuse an out-of-contract concurrent prompt rather
         // than letting one SDK result settle the wrong turn.
         if (this.turnActive) return;
+        {
+          const simulated = consumeAgentTurnFailure();
+          if (simulated) { this.playSimulatedTurnFailure(simulated); break; }
+        }
         this.turnActive = true;
         this.turnGeneration += 1;
         this.interruptRequested = false;
         this.send({ t: 'turn-start' });
-        this.input.push({
-          type: 'user',
-          message: { role: 'user', content: claudeSkillPrompt(body, skill) },
-          parent_tool_use_id: null,
-        } as SDKUserMessage);
+        if (this.rebound && (!this.cwd || !filesystemPath.equal(this.cwd, this.rebound))) {
+          const migration = this.migrateAndEnqueuePrompt(body, skill);
+          this.nativeMigrationTask = migration;
+          void migration.finally(() => {
+            if (this.nativeMigrationTask === migration) this.nativeMigrationTask = null;
+          });
+        } else {
+          this.enqueuePrompt(body, skill);
+        }
         break;
       }
       case 'refresh-skills': void this.publishSkills(); break;
@@ -746,6 +830,7 @@ export class AgentSession implements AttributedAgentSession {
         // 'auto' = model classifier decides. We don't expose the dangerous
         // 'bypassPermissions' / 'dontAsk'.
         if (isAgentAccessMode(msg.mode)) {
+          this.access = msg.mode;
           void this.q?.setPermissionMode(msg.mode).catch((err) => log.debug(errorMessage(err)));
         }
         break;
@@ -790,6 +875,30 @@ export class AgentSession implements AttributedAgentSession {
     try { this.ws.send(JSON.stringify(obj)); } catch { /* ws gone */ }
   }
 
+  /** Turn-scoped runtime errors carry their classified failure kind so the
+   * renderer can offer the matching recovery without parsing the message. */
+  private sendTurnError(message: string): void {
+    this.send(agentTurnErrorEvent(message));
+  }
+
+  /** Development-only: play the armed turn-failure script through the normal
+   * event path so the renderer exercises the real turn lifecycle. The prompt
+   * never reaches the native runtime. */
+  private playSimulatedTurnFailure(kind: Exclude<AgentTurnFailureSimulation, 'none'>): void {
+    const script = simulatedTurnFailureScript(kind);
+    if (script.fatal) {
+      this.finish(script.message);
+      return;
+    }
+    this.turnActive = true;
+    this.turnGeneration += 1;
+    this.interruptRequested = false;
+    this.send({ t: 'turn-start' });
+    this.turnActive = false;
+    this.sendTurnError(script.message);
+    this.send({ t: 'turn-end', isError: true });
+  }
+
   private finish(message?: string): void {
     if (this.closed) return;
     this.send({ t: 'exit', ...(message ? { message } : {}) });
@@ -816,6 +925,8 @@ export class AgentSession implements AttributedAgentSession {
   }
 
   private async retireNativeQuery(): Promise<void> {
+    const migration = this.nativeMigrationTask;
+    if (migration) await migration.catch(() => { /* migration already reported */ });
     const query = this.q;
     if (!query) return;
     try { await query.interrupt(); } catch { /* continue through cleanup */ }

@@ -12,8 +12,27 @@ import os from 'node:os';
 import path from 'node:path';
 import { logger, errorMessage } from './log.ts';
 import { normalizeTranscriptionLanguage } from '../shared/transcription.ts';
-import type { LocalTranscriptionModelId } from '../shared/transcription.ts';
 import transcriptionToolchain from '../native/transcription/toolchain.json' with { type: 'json' };
+import type {
+  AppearancePreferences,
+  AppearanceScale,
+  AppearanceTheme,
+  CapturePreferences,
+  OnboardingPreferences,
+  UpdatePreferences,
+} from '../shared/preferences.ts';
+import type { EmbedderProvider, EmbeddingSource } from '../shared/embedding.ts';
+import type { LocalTranscriptionModelId } from '../shared/transcription.ts';
+
+export type {
+  AppearancePreferences,
+  AppearanceScale,
+  AppearanceTheme,
+  CapturePreferences,
+  OnboardingPreferences,
+  UpdatePreferences,
+} from '../shared/preferences.ts';
+export type { EmbedderProvider, EmbeddingSource } from '../shared/embedding.ts';
 
 const log = logger('app-config');
 
@@ -25,27 +44,21 @@ export interface RecentFolder {
   openedAt: string;
   /** User-starred in the Welcome library list. Absent = not a favorite. */
   favorite?: boolean;
-  description?: string;
-  descriptionSource?: 'user' | 'ai';
-  descriptionUpdatedAt?: string;
 }
 
-export type EmbedderProvider = 'openai' | 'openrouter';
-export type EmbeddingSource = EmbedderProvider | 'stashbase-account';
 export type TranscriptionModelId = LocalTranscriptionModelId;
-export type AppearanceTheme = 'system' | 'light' | 'dark';
-export type AppearanceScale = 'small' | 'default' | 'large';
-
-export interface AppearancePreferences {
-  theme: AppearanceTheme;
-  uiScale: AppearanceScale;
-  readingTextSize: AppearanceScale;
-}
-
 export const DEFAULT_APPEARANCE_PREFERENCES: AppearancePreferences = {
   theme: 'system',
   uiScale: 'default',
   readingTextSize: 'default',
+};
+
+export const DEFAULT_CAPTURE_PREFERENCES: CapturePreferences = {
+  clipboardImageImport: false,
+};
+
+export const DEFAULT_UPDATE_PREFERENCES: UpdatePreferences = {
+  autoCheck: true,
 };
 
 export interface EmbedderConfig {
@@ -139,12 +152,14 @@ export interface AppConfigFile {
   /** Bounded, user-wide presentation preferences. These deliberately avoid
    * arbitrary theme, font, spacing, and layout customization. */
   appearance?: Partial<AppearancePreferences>;
+  /** Explicit opt-ins for ambient capture. Absent and invalid values fail
+   * closed so upgrades never begin reading the clipboard automatically. */
+  capture?: Partial<CapturePreferences>;
+  /** Desktop release checks are enabled by default. The Electron main process
+   * reads this through the local server so this process remains the sole
+   * config writer. */
+  updates?: Partial<UpdatePreferences>;
   onboarding?: OnboardingPreferences;
-}
-
-export interface OnboardingPreferences {
-  sourceCodeNoticeVersion?: number;
-  unsupportedFormatsNoticeVersion?: number;
 }
 
 export function readAppConfigStrict(): AppConfigFile {
@@ -245,10 +260,6 @@ export function writeAppConfigStrict(cfg: AppConfigFile): void {
     if (!isConfigAccessError(err)) throw err;
     throw configAccessError(err);
   }
-}
-
-export function getApiKey(): string | undefined {
-  return getEmbedderConfig().apiKey;
 }
 
 export function getHostedAccountSession(): HostedAccountSession | undefined {
@@ -454,6 +465,111 @@ export function setAppearancePreferences(next: Partial<AppearancePreferences>): 
   cfg.appearance = resolved;
   writeAppConfigStrict(cfg);
   return resolved;
+}
+
+export function normalizeCapturePreferences(value: unknown): CapturePreferences {
+  const raw = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Partial<CapturePreferences>
+    : {};
+  return {
+    clipboardImageImport: typeof raw.clipboardImageImport === 'boolean'
+      ? raw.clipboardImageImport
+      : DEFAULT_CAPTURE_PREFERENCES.clipboardImageImport,
+  };
+}
+
+export interface CapturePreferencesStore {
+  get(): CapturePreferences;
+  set(next: Partial<CapturePreferences>): CapturePreferences;
+}
+
+export function createCapturePreferencesStore(io: {
+  read(): AppConfigFile;
+  write(config: AppConfigFile): void;
+}): CapturePreferencesStore {
+  return {
+    get: () => normalizeCapturePreferences(io.read().capture),
+    set(next) {
+      const config = io.read();
+      const resolved = normalizeCapturePreferences({
+        ...normalizeCapturePreferences(config.capture),
+        ...next,
+      });
+      config.capture = resolved;
+      io.write(config);
+      return resolved;
+    },
+  };
+}
+
+const capturePreferences = createCapturePreferencesStore({
+  read: readAppConfig,
+  write: writeAppConfigStrict,
+});
+
+export function getCapturePreferences(): CapturePreferences {
+  return capturePreferences.get();
+}
+
+export function setCapturePreferences(next: Partial<CapturePreferences>): CapturePreferences {
+  const cfg = readAppConfigStrict();
+  const resolved = normalizeCapturePreferences({
+    ...normalizeCapturePreferences(cfg.capture),
+    ...next,
+  });
+  cfg.capture = resolved;
+  writeAppConfigStrict(cfg);
+  return resolved;
+}
+
+export function normalizeUpdatePreferences(value: unknown): UpdatePreferences {
+  const raw = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Partial<UpdatePreferences>
+    : {};
+  return {
+    autoCheck: typeof raw.autoCheck === 'boolean'
+      ? raw.autoCheck
+      : DEFAULT_UPDATE_PREFERENCES.autoCheck,
+  };
+}
+
+export interface UpdatePreferencesStore {
+  get(): UpdatePreferences;
+  set(next: Partial<UpdatePreferences>): UpdatePreferences;
+}
+
+export function createUpdatePreferencesStore(io: {
+  read(): AppConfigFile;
+  write(config: AppConfigFile): void;
+}): UpdatePreferencesStore {
+  return {
+    get: () => normalizeUpdatePreferences(io.read().updates),
+    set(next) {
+      const config = io.read();
+      const resolved = normalizeUpdatePreferences({
+        ...normalizeUpdatePreferences(config.updates),
+        ...next,
+      });
+      config.updates = resolved;
+      io.write(config);
+      return resolved;
+    },
+  };
+}
+
+const updatePreferences = createUpdatePreferencesStore({
+  // Writes and their read-modify-write precondition must fail closed on a
+  // malformed or inaccessible config instead of replacing it with defaults.
+  read: readAppConfigStrict,
+  write: writeAppConfigStrict,
+});
+
+export function getUpdatePreferences(): UpdatePreferences {
+  return updatePreferences.get();
+}
+
+export function setUpdatePreferences(next: Partial<UpdatePreferences>): UpdatePreferences {
+  return updatePreferences.set(next);
 }
 
 /** One-time upgrade from the very first global-embedder schema, when
