@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
+import { inflateRawSync } from 'node:zlib';
 import { derivedDir, derivedNoteFor } from './derived-store.ts';
 import { derivedIsFresh, discoverNewSources, indexFreshDerived, maybeConvert, TransientConversionError, type ConversionSpec } from './conversion.ts';
 import { isXlsxFile } from './format.ts';
@@ -135,18 +136,52 @@ export function inspectXlsxContainer(bytes: Buffer, limits: XlsxLimits = XLSX_LI
     const nameLength = bytes.readUInt16LE(offset + 28);
     const extraLength = bytes.readUInt16LE(offset + 30);
     const commentLength = bytes.readUInt16LE(offset + 32);
+    const localOffset = bytes.readUInt32LE(offset + 42);
     const nameEnd = offset + 46 + nameLength;
     if (nameEnd > bytes.length) throw new Error('Malformed XLSX ZIP entry name');
     const name = bytes.subarray(offset + 46, nameEnd).toString('utf8').replace(/\\/g, '/');
     if (name.startsWith('/') || name.split('/').includes('..') || name.includes('\0')) throw new Error('Unsafe XLSX ZIP path');
     expanded += uncompressed;
     if (expanded > limits.expandedBytes) throw new Error('Workbook exceeds the expanded-size limit');
+    validateZipEntryPayload(bytes, localOffset, compressed, uncompressed, limits.expandedBytes - (expanded - uncompressed));
     if (/^xl\/media\//i.test(name)) imageBytes += uncompressed;
     if (/^xl\/worksheets\/[^/]+\.xml$/i.test(name)) worksheets += 1;
     if (worksheets > limits.worksheets) throw new Error('Workbook has too many worksheets');
     if (imageBytes > limits.imageBytes) throw new Error('Workbook images exceed the image-size limit');
     offset = nameEnd + extraLength + commentLength;
   }
+}
+
+function validateZipEntryPayload(
+  bytes: Buffer,
+  localOffset: number,
+  compressedSize: number,
+  declaredSize: number,
+  remainingExpandedBytes: number,
+): void {
+  if (localOffset + 30 > bytes.length || bytes.readUInt32LE(localOffset) !== 0x04034b50) {
+    throw new Error('Malformed XLSX ZIP local entry');
+  }
+  const method = bytes.readUInt16LE(localOffset + 8);
+  const nameLength = bytes.readUInt16LE(localOffset + 26);
+  const extraLength = bytes.readUInt16LE(localOffset + 28);
+  const dataStart = localOffset + 30 + nameLength + extraLength;
+  const dataEnd = dataStart + compressedSize;
+  if (dataEnd > bytes.length) throw new Error('Malformed XLSX ZIP entry payload');
+  const payload = bytes.subarray(dataStart, dataEnd);
+  let actualSize: number;
+  try {
+    if (method === 0) actualSize = payload.length;
+    else if (method === 8) {
+      actualSize = inflateRawSync(payload, {
+        maxOutputLength: Math.max(1, Math.min(declaredSize + 1, remainingExpandedBytes + 1)),
+      }).length;
+    } else throw new Error(`Unsupported XLSX ZIP compression method ${method}`);
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.startsWith('Unsupported XLSX')) throw error;
+    throw new Error('Malformed or resource-exhausting XLSX ZIP entry', { cause: error });
+  }
+  if (actualSize !== declaredSize) throw new Error('XLSX ZIP entry size does not match its directory');
 }
 
 function findSignatureBackwards(bytes: Buffer, signature: number, start: number): number {
