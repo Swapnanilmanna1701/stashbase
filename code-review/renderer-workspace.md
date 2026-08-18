@@ -41,7 +41,10 @@ semantic readiness.
 - Document navigation and native context release cross the same save barrier.
   A failed save blocks the transition and keeps the recoverable buffer mounted.
 - Tabs, trees, overlays, and dialogs expose semantic selection/focus state.
-  Overlay dismissal restores focus to the initiating control.
+  Overlay dismissal restores focus to the initiating control unless the
+  selected action mounts its own focus destination. Pointer-driven menus set
+  that exception before dismissal begins so late focus restoration cannot
+  blur and cancel a newly mounted inline editor.
 - Tree row order, visibility, and keyboard order all come from the one tree
   model. Every row is rendered whether or not its folder is open, so rows
   register their element with the roving-focus hook and navigation resolves
@@ -74,6 +77,7 @@ changes, never to make an accidental dependency pass.
 | Primary owners | `web-src/src/store/state/state.ts`, `state/stateReducer.ts` and the `state/workspaceReducer.ts`, `state/chatReducer.ts`, `state/uiShellReducer.ts` sub-reducers it composes, `state/stateHelpers.ts`, `lib/folderScopedReset.ts`, `lib/folderPath.ts`, `lib/folderTransition.ts`, and the internal `hooks/useDocumentActions.ts`, `hooks/useFileActions.ts`, `hooks/useFolderActions.ts`, `hooks/useSearchActions.ts` Modules |
 | Shell Adapter | `web-src/src/store/contexts/AppContext.tsx` (the single `useReducer` composition root), `web-src/src/store/contexts/WorkspaceContext.tsx`, `ChatContext.tsx`, `UiShellContext.tsx`, `ActionsContext.tsx`, `web-src/src/app/App.tsx`, `web-src/src/app/components/MainPane.tsx` |
 | Renderer tree model | `web-src/src/features/workspace/lib/fileTreeModel.ts` (nesting, manual-rank ordering, visible rows), `lib/treeKeyboard.ts` (roving-focus rules), `hooks/useTreeRoving.ts` (row registry and per-row binding) |
+| Focus handoff Adapter | `web-src/src/common/components/ManagedMenu.tsx`, with inline rename ownership in `web-src/src/features/workspace/components/RenameInput.tsx` |
 | Server transport Adapter | `web-src/src/common/api/api.ts`, `apiTransport.ts` |
 | Electron lifecycle Adapter | `onPrepareContextRelease` and folder/library events consumed by `useActiveFolderWorkspace.ts` |
 | Focused evidence | `web-src/src/store/__tests__/` (including `index-status-request.test.ts`, `context-slice-stability.test.ts`, `folder-path.test.ts`, `folder-transition.test.ts`, `folder-scoped-reset.test.ts`), `web-src/src/features/workspace/__tests__/` (including `file-tree-model.test.ts`, `tree-keyboard.test.ts`, `workspace-surfaces.test.ts`, `accessibility-semantics.test.ts`), `web-src/src/features/preparation/__tests__/preparation-notices.test.ts`, `web-src/src/common/__tests__/workspace-layout.test.ts`, `web-src/src/common/__tests__/overlay-stack.test.ts`, `lazy-load.test.ts`, `api-transport.test.ts`, and `scripts/check-renderer-chunks.mjs` |

@@ -100,6 +100,14 @@ function renderMenuItems(
                     className={item.danger
                       ? 'text-danger data-highlighted:bg-destructive/10'
                       : undefined}
+                    // Pointer dismissal can begin before `click`. Record the
+                    // destination focus policy at pointer-down so Base UI
+                    // cannot restore focus over a newly mounted inline input
+                    // (RenameInput commits/cancels on blur). Keep the click
+                    // assignment below for keyboard activation.
+                    onPointerDown={() => {
+                      returnFocusRef.current = item.returnFocus !== false;
+                    }}
                     onClick={() => {
                       returnFocusRef.current = item.returnFocus !== false;
                       item.onSelect();
