@@ -62,7 +62,9 @@ forwarding, and script confinement.
   export/edit controls, keeps internal worksheet links local, makes every
   external cell/image/shape hyperlink inert, and disables the library's
   automatic formula recalculation through the pinned package-manager patch. The renderer
-  build guard rejects an unpatched install for either invariant. Fetch/parser state retires when the
+  build guard rejects an unpatched install for either invariant. The dependency's controller
+  cleanup terminates its worker and revokes workbook image object URLs when the file identity
+  changes or the preview unmounts. Fetch/parser state retires when the
   source version or tab changes. Its WASM and renderer code are packaged local
   assets and lazy dynamic entries; no CDN is permitted. The
   production CSP grants only `wasm-unsafe-eval` for compilation, not general

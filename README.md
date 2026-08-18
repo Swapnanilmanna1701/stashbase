@@ -163,10 +163,11 @@ Some formats need preparation before their contents can be searched. StashBase k
 | JSON | The JSON file | Source-preserving tree and exact source text |
 | PDF | The original PDF | Derived Markdown |
 | DOCX | The original DOCX | Derived HTML |
+| XLSX | The original workbook | Derived Markdown with worksheet and cell identity |
 | Images | The original image | OCR text |
 | Audio and video | The original media | Audio track transcribed locally to timestamped Markdown |
 
-For PDF, DOCX, audio, and video, Agents read the derived text while the original remains the visible source file. Audio and video play directly when supported; otherwise, StashBase creates a compatible local audio preview. Large files dragged into the app stream to disk instead of being held entirely in memory. See [Architecture](design-docs/architecture.md) and [Preparation](design-docs/design/preparation.md) for the product and system contracts.
+For PDF, DOCX, XLSX, audio, and video, Agents read the derived text while the original remains the visible source file. Workbooks open in a read-only viewer and never expose an in-app content save path. Audio and video play directly when supported; otherwise, StashBase creates a compatible local audio preview. Large files dragged into the app stream to disk instead of being held entirely in memory. See [Architecture](design-docs/architecture.md) and [Preparation](design-docs/design/preparation.md) for the product and system contracts.
 
 Preview, Workbench editing, retrieval text, Agent reads, and file writes are
 separate capabilities. See the canonical

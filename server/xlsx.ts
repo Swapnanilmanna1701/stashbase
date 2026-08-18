@@ -16,6 +16,8 @@ export const XLSX_LIMITS = Object.freeze({
   gridSlots: 2_000_000,
   imageBytes: 50 * 1024 * 1024,
   outputBytes: 32 * 1024 * 1024,
+  memoryMb: 256,
+  compressionRatio: 100,
   timeoutMs: 60_000,
 });
 export type XlsxLimits = { [Key in keyof typeof XLSX_LIMITS]: number };
@@ -45,6 +47,7 @@ void import('node:worker_threads').then(async ({ parentPort, workerData }) => {
     for (let sheetIndex = 0; sheetIndex < workbook.sheetCount; sheetIndex += 1) {
       const sheet = workbook.getSheet(sheetIndex);
       try {
+        if (sheet.visibility !== 'visible') continue;
         totalCells += sheet.cellCount;
         if (totalCells > workerData.limits.cells) throw new Error('Workbook has too many cells');
         lines.push('## Worksheet ' + (sheetIndex + 1) + ': ' + escapeText(sheet.name), '');
@@ -124,7 +127,11 @@ export function inspectXlsxContainer(bytes: Buffer, limits: XlsxLimits = XLSX_LI
     if (offset + 46 > bytes.length || bytes.readUInt32LE(offset) !== 0x02014b50) throw new Error('Malformed XLSX ZIP entry');
     const flags = bytes.readUInt16LE(offset + 8);
     if ((flags & 1) !== 0) throw new Error('Encrypted workbooks are not supported');
+    const compressed = bytes.readUInt32LE(offset + 20);
     const uncompressed = bytes.readUInt32LE(offset + 24);
+    if (compressed === 0 ? uncompressed !== 0 : uncompressed / compressed > limits.compressionRatio) {
+      throw new Error('Workbook contains a suspicious ZIP compression ratio');
+    }
     const nameLength = bytes.readUInt16LE(offset + 28);
     const extraLength = bytes.readUInt16LE(offset + 30);
     const commentLength = bytes.readUInt16LE(offset + 32);
@@ -152,7 +159,11 @@ export async function extractXlsxText(sourceAbs: string, signal?: AbortSignal, l
   inspectXlsxContainer(bytes, limits);
   if (signal?.aborted) throw new TransientConversionError('xlsx_extract cancelled');
   return await new Promise((resolve, reject) => {
-    const worker = new Worker(WORKER_SOURCE, { eval: true, workerData: { bytes, fileName: path.basename(sourceAbs), dukeModuleUrl, dukeWasmPath, limits, completeMarker: COMPLETE_MARKER } });
+    const worker = new Worker(WORKER_SOURCE, {
+      eval: true,
+      resourceLimits: { maxOldGenerationSizeMb: limits.memoryMb },
+      workerData: { bytes, fileName: path.basename(sourceAbs), dukeModuleUrl, dukeWasmPath, limits, completeMarker: COMPLETE_MARKER },
+    });
     let settled = false;
     const finish = (error?: Error, markdown?: string) => {
       if (settled) return; settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort); worker.removeAllListeners();
@@ -191,7 +202,7 @@ export async function readBoundedXlsx(sourceAbs: string): Promise<Buffer> {
   }
 }
 
-function derivedXlsxIsComplete(_sourceAbs: string, output: string): boolean {
+function derivedXlsxIsComplete(sourceAbs: string, output: string): boolean {
   let handle: number | null = null;
   try {
     handle = fs.openSync(output, 'r');
@@ -199,7 +210,7 @@ function derivedXlsxIsComplete(_sourceAbs: string, output: string): boolean {
     const length = Math.min(size, 2048);
     const tail = Buffer.alloc(length);
     fs.readSync(handle, tail, 0, length, size - length);
-    return xlsxTailMatchesSource(tail.toString('utf8'), _sourceAbs);
+    return xlsxTailMatchesSource(tail.toString('utf8'), sourceAbs);
   } catch { return false; }
   finally { if (handle != null) fs.closeSync(handle); }
 }

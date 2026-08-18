@@ -66,6 +66,7 @@ assertions.
 | PDF | `.pdf` | Source PDF preview | Preview-only | Prepared Markdown | `read_file` returns current prepared Markdown; content writes are rejected |
 | Image | `.png`, `.jpg`, `.jpeg`, `.webp` | Source image preview and lightbox | Preview-only; accepted imports create visible image sources | Prepared OCR evidence | Search consumes OCR; external MCP `read_file` does not return image bytes; a built-in Agent may consume an explicitly supplied source image |
 | DOCX | `.docx` | Sanitized source-based preview with a prepared fallback | Preview-only | Prepared HTML | `read_file` returns current prepared HTML; content writes are rejected |
+| XLSX | `.xlsx` | Worker-backed read-only workbook preview; visible worksheets retain source order | Preview-only | Prepared source-attributed Markdown with worksheet and cell coordinates | `read_file` returns current prepared worksheet Markdown; content writes are rejected |
 | Audio | `.mp3`, `.wav`, `.m4a`, `.flac`, `.ogg`, `.opus`, `.aac`, `.aiff`, `.aif` | Source playback or compatible local audio preview | Preview-only | Prepared timestamped transcript Markdown | `read_file` returns the current transcript; content writes are rejected |
 | Video container | `.mp4`, `.mov`, `.m4v`, `.webm`, `.mkv`, `.avi` | Media playback when compatible, otherwise a local audio preview | Preview-only | Audio track prepared as timestamped transcript Markdown | `read_file` returns the current transcript; content writes are rejected |
 

@@ -96,7 +96,7 @@ for the whole layer.
 ## Preparation
 
 Format-specific work that makes a source usable for search or Agent reading,
-such as PDF extraction, image OCR, DOCX text derivation, or media
+such as PDF extraction, image OCR, DOCX/XLSX text derivation, or media
 transcription. Preparation and AI Index readiness are separate states.
 
 ## Product scenario

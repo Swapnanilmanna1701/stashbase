@@ -72,7 +72,10 @@ export function mountFileAssetRoutes(app: express.Express): void {
         void readBoundedXlsx(abs)
           .then((bytes) => { inspectXlsxContainer(bytes); res.type(MIME['.xlsx']).send(bytes); })
           .catch((err: unknown) => {
-            if (!res.headersSent) res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
+            if (!res.headersSent) sendError(res, Object.assign(
+              new Error(err instanceof Error ? err.message : String(err)),
+              { status: 422 },
+            ));
           });
         return;
       }

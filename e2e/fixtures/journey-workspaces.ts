@@ -31,7 +31,7 @@ const VALID_DOCX = Buffer.from(
 );
 
 let sheetsInitialized = false;
-function validXlsx(): Buffer {
+export function validXlsx(firstHeading = 'Quarter'): Buffer {
   if (!sheetsInitialized) {
     const require = createRequire(import.meta.url);
     const modulePath = require.resolve('@dukelib/sheets-wasm');
@@ -41,7 +41,7 @@ function validXlsx(): Buffer {
   const workbook = new Workbook();
   try {
     const summary = workbook.getSheet(0);
-    summary.setCell('A1', 'Quarter');
+    summary.setCell('A1', firstHeading);
     summary.setCell('B1', 'Revenue');
     summary.setCell('A2', 'Q1');
     summary.setCell('B2', 42);

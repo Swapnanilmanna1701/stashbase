@@ -56,7 +56,6 @@ const log = logger('conversion');
 interface SourceSignature {
   size: number;
   mtimeMs: number;
-  ctimeMs: number;
 }
 
 export interface ConversionSpec {
@@ -308,7 +307,7 @@ function sourcePathOf(absPath: string): string {
 function sourceSignature(absPath: string): SourceSignature | null {
   try {
     const st = fs.statSync(absPath);
-    return st.isFile() ? { size: st.size, mtimeMs: st.mtimeMs, ctimeMs: st.ctimeMs } : null;
+    return st.isFile() ? { size: st.size, mtimeMs: st.mtimeMs } : null;
   } catch {
     return null;
   }
@@ -320,7 +319,7 @@ function abortError(signal?: AbortSignal): Error {
 }
 
 function sameSourceSignature(a: SourceSignature | null, b: SourceSignature | null): boolean {
-  return a != null && b != null && a.size === b.size && a.mtimeMs === b.mtimeMs && a.ctimeMs === b.ctimeMs;
+  return a != null && b != null && a.size === b.size && a.mtimeMs === b.mtimeMs;
 }
 
 type ConversionOutcome = 'settled' | 'rediscover';

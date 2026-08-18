@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import type { LaunchedApp } from '../support/app.ts';
 import { launchApp } from '../support/app.ts';
@@ -14,6 +16,7 @@ import {
   MALFORMED_PDF,
   seedJourneyWorkspaces,
   seedXlsxJourneyWorkspace,
+  validXlsx,
 } from '../fixtures/journey-workspaces.ts';
 import { primaryKey } from './journey-helpers.ts';
 
@@ -227,6 +230,17 @@ test('valid XLSX opens as a source-identified read-only multi-sheet workbook', a
     await expect(app.page.getByText('Selected cells copied', { exact: true })).toBeAttached();
     const copiedRange = await app.electron.evaluate(({ clipboard }) => clipboard.readText());
     expect(copiedRange).toBe('Quarter\tRevenue\t\nQ1\t42\t84');
+
+    // An external replacement must advance the source version, retire the
+    // controller for the prior generation, and display only the new bytes.
+    fs.writeFileSync(path.join(fixture.workspaces.projectA, JOURNEY_XLSX), validXlsx('Updated Quarter'));
+    await expect(app.page.getByText('No cell selected', { exact: true })).toBeVisible({ timeout: 20_000 });
+    const refreshedGrid = app.page.getByRole('grid', { name: 'Sheet1 worksheet grid' });
+    const refreshedBox = await refreshedGrid.boundingBox();
+    expect(refreshedBox).not.toBeNull();
+    await app.page.mouse.click(refreshedBox!.x + 80, refreshedBox!.y + 34);
+    await app.page.getByRole('button', { name: 'Copy selected cells' }).click();
+    await expect.poll(() => app!.electron.evaluate(({ clipboard }) => clipboard.readText())).toBe('Updated Quarter');
     await expect(app.page.getByRole('tab', { name: new RegExp(JOURNEY_XLSX) })).toHaveAttribute('aria-selected', 'true');
     await expect(app.page.getByRole('button', { name: 'Switch to Live Editing' })).toHaveCount(0);
 

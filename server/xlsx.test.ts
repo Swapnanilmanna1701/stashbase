@@ -86,6 +86,11 @@ test('XLSX ZIP preflight rejects encrypted, ZIP64, unsafe, expanded, worksheet, 
     'xl/worksheets/sheet2.xml': '2',
   }), { ...XLSX_LIMITS, worksheets: 1 }), /too many worksheets/);
   assert.throws(() => inspectXlsxContainer(ordinary, { ...XLSX_LIMITS, imageBytes: 2 }), /image-size limit/);
+  const suspiciousRatio = Buffer.from(ordinary);
+  const suspiciousCentral = suspiciousRatio.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+  suspiciousRatio.writeUInt32LE(1, suspiciousCentral + 20);
+  suspiciousRatio.writeUInt32LE(XLSX_LIMITS.compressionRatio + 1, suspiciousCentral + 24);
+  assert.throws(() => inspectXlsxContainer(suspiciousRatio), /suspicious ZIP compression ratio/);
 });
 
 test('XLSX extraction enforces cell, aggregate grid, output, cancellation, and timeout bounds', async () => {

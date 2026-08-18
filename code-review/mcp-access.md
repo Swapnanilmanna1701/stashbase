@@ -40,7 +40,7 @@ clients and are not a general host-filesystem API.
 - Format capability follows the
   [Documents matrix](../design-docs/design/documents.md#format-capability-matrix):
   `read_file` returns direct Markdown, HTML, or JSON source text and current
-  prepared PDF, DOCX, or media text; it does not return image bytes.
+  prepared PDF, DOCX, XLSX, or media text; it does not return image bytes.
   `write_file` and `edit_file` accept Markdown, HTML, and JSON source text only.
   Previewability or built-in image attachment support must not be generalized
   into external MCP text-read capability.

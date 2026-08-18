@@ -87,9 +87,10 @@ reason when a platform cannot exercise it.
   folder and nothing is submitted automatically. When browser access is safe,
   also confirm **Open GitHub** opens the prefilled issue without placing logs or
   local paths in the URL.
-- [ ] **J03 / J04** — Open representative real PDF, DOCX, image, and audio fixtures in the
+- [ ] **J03 / J04** — Open representative real PDF, DOCX, XLSX, image, and audio fixtures in the
   packaged app on platforms where those formats ship. The automated journey
-  uses synthetic/minimal fixtures; here confirm production rendering and, for
+  uses synthetic/minimal fixtures; here confirm production rendering, that an
+  XLSX opens offline with worksheet navigation/copy and no save affordance, and, for
   audio, that play/pause and seeking produce sound and preserve control state.
 - [ ] **J01 / J02 / J03** — Open a second window, switch folders, close both windows, relaunch, and
   confirm no orphan process/port, duplicate unexpected window, or lost save.

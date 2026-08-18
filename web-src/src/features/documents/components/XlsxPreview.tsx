@@ -65,13 +65,13 @@ export function XlsxPreview({ name }: { name: string }) {
     showHiddenSheets: false,
   });
   useEffect(() => {
-    if (!bytes || !controller.isLoading) return;
+    if (!bytes || controller.sheets.length > 0 || controller.error) return;
     const timer = window.setTimeout(() => {
       setLoadError('Workbook preview exceeded the 30 second parsing limit.');
       setBytes(undefined);
     }, PREVIEW_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [bytes, controller.isLoading]);
+  }, [bytes, controller.error, controller.sheets.length]);
   const error = loadError ?? controller.error?.message ?? null;
   const status = useMemo(() => controller.selectedRangeAddress ?? controller.activeCellAddress ?? 'No cell selected', [controller.selectedRangeAddress, controller.activeCellAddress]);
   const featureSummary = useMemo(() => {
@@ -149,23 +149,29 @@ export function XlsxPreview({ name }: { name: string }) {
         <span className="min-w-0 flex-1 truncate text-muted-foreground">{status}</span>
         <Button variant="outline" size="xs" onClick={() => { void copySelection(); }} aria-label="Copy selected cells">Copy</Button>
         <span className="sr-only" role="status">{copyStatus === 'copied' ? 'Selected cells copied' : copyStatus === 'failed' ? 'Selected cells could not be copied' : ''}</span>
-        <Button variant="outline" size="xs" onClick={controller.zoomOut} disabled={!controller.canZoomOut} aria-label="Zoom out">−</Button>
+        <Button variant="outline" size="icon-xs" onClick={controller.zoomOut} disabled={!controller.canZoomOut} aria-label="Zoom out">−</Button>
         <span className="w-12 text-center tabular-nums">{controller.zoomScale}%</span>
-        <Button variant="outline" size="xs" onClick={controller.zoomIn} disabled={!controller.canZoomIn} aria-label="Zoom in">+</Button>
+        <Button variant="outline" size="icon-xs" onClick={controller.zoomIn} disabled={!controller.canZoomIn} aria-label="Zoom in">+</Button>
       </div>
       {controller.sheets.length > 1 ? (
-        <div className="flex min-h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-muted/40 px-2" role="tablist" aria-label="Workbook worksheets">
+        <div
+          role="tablist"
+          aria-label="Workbook worksheets"
+          className="flex min-h-9 max-w-full shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-muted/40 px-2"
+        >
           {controller.sheets.map((sheet, index) => (
-            <button
-              key={`${sheet.name}:${index}`}
+            <Button
+              key={`${sheet.name}:${sheet.workbookSheetIndex}`}
               type="button"
               role="tab"
               aria-selected={controller.activeSheetIndex === index}
-              className={`rounded px-3 py-1 text-sm ${controller.activeSheetIndex === index ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              variant={controller.activeSheetIndex === index ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex-none"
               onClick={() => controller.setActiveSheetIndex(index)}
             >
               {sheet.name}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}
