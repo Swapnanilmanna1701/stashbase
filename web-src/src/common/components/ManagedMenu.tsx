@@ -109,8 +109,18 @@ function renderMenuItems(
                       returnFocusRef.current = item.returnFocus !== false;
                     }}
                     onClick={() => {
-                      returnFocusRef.current = item.returnFocus !== false;
-                      item.onSelect();
+                      const returnFocus = item.returnFocus !== false;
+                      returnFocusRef.current = returnFocus;
+                      if (returnFocus) {
+                        item.onSelect();
+                        return;
+                      }
+                      // Let Base UI finish dismissing the popup before an
+                      // action mounts its own focus destination. Mounting an
+                      // inline input during the same click can race the
+                      // popup's teardown focus work: the late handoff blurs
+                      // the input and an unchanged rename cancels itself.
+                      requestAnimationFrame(() => item.onSelect());
                     }}
                   >
                     <span className="flex min-w-0 flex-col gap-0.5">

@@ -357,6 +357,24 @@ test('menus are Base UI popups positioned from the anchor, not hand-measured', a
   });
 });
 
+test('a menu action with its own focus destination runs after popup dismissal', async () => {
+  await withDom(async (dom) => {
+    const events: string[] = [];
+    await dom.render(h(Menu, {
+      anchor: { x: 24, y: 48 },
+      items: [{
+        label: 'Rename',
+        returnFocus: false,
+        onSelect: () => { events.push('select'); },
+      }],
+      onClose: () => { events.push('close'); },
+    }));
+
+    await dom.fire(dom.byRole('menuitem')[0], new MouseEvent('click', { bubbles: true }));
+    assert.deepEqual(events, ['close', 'select'], 'the popup closes before the destination mounts');
+  });
+});
+
 test('the toast viewport is a Base UI region that ships with the shell', async () => {
   await withDom(async (dom) => {
     await dom.render(h(Toasts));

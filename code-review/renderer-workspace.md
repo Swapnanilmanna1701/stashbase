@@ -43,8 +43,9 @@ semantic readiness.
 - Tabs, trees, overlays, and dialogs expose semantic selection/focus state.
   Overlay dismissal restores focus to the initiating control unless the
   selected action mounts its own focus destination. Pointer-driven menus set
-  that exception before dismissal begins so late focus restoration cannot
-  blur and cancel a newly mounted inline editor.
+  that exception before dismissal begins and mount the destination only after
+  popup teardown, so dismissal cannot blur and cancel a newly mounted inline
+  editor under a slower renderer schedule.
 - Tree row order, visibility, and keyboard order all come from the one tree
   model. Every row is rendered whether or not its folder is open, so rows
   register their element with the roving-focus hook and navigation resolves
