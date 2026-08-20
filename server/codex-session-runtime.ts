@@ -847,7 +847,7 @@ export class CodexSession implements AttributedAgentSession {
       case 'guardianWarning':
       case 'configWarning': {
         const message = notificationMessage(params);
-        if (message) this.send({ t: 'error', message });
+        if (message) this.send({ t: 'notice', message });
         break;
       }
       default:
@@ -1045,6 +1045,10 @@ function notificationMessage(params: JsonObject): string {
     const fromError = usefulMessage((error as JsonObject).message);
     if (fromError) return fromError;
   }
+  const summary = usefulMessage(params.summary);
+  const details = usefulMessage(params.details);
+  if (summary && details && details !== summary) return `${summary}\n\n${details}`;
+  if (summary || details) return summary || details;
   return '';
 }
 

@@ -13,6 +13,7 @@
  */
 import './workspace.css';
 
+export { ChooseFolderButton } from '@/features/workspace/components/ChooseFolderButton';
 export { EmptyTabLanding } from '@/features/workspace/components/EmptyTabLanding';
 export { FileTree } from '@/features/workspace/components/FileTree';
 export { FolderMenu } from '@/features/workspace/components/FolderMenu';

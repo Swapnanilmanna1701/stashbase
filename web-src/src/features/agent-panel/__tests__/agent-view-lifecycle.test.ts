@@ -234,6 +234,23 @@ test('Codex authentication recovery starts login with the installed runtime', as
   assert.equal(logins, 1);
 });
 
+test('a runtime notice received before ready stays visible without closing the session', async (t) => {
+  const { renderer, first } = await mountAgentView(t);
+
+  await act(async () => {
+    first.event({ t: 'notice', message: 'Skill descriptions were shortened.' });
+    first.event({ t: 'ready' });
+  });
+
+  const messages = renderer.root.findByType(MessageList).props;
+  assert.equal(messages.phase, 'live');
+  assert.equal(messages.fatal, null);
+  assert.deepEqual(messages.blocks.map((block: { kind: string; text?: string }) => (
+    block.kind === 'notice' ? { kind: block.kind, text: block.text } : { kind: block.kind }
+  )), [{ kind: 'notice', text: 'Skill descriptions were shortened.' }]);
+  assert.match(renderedText(renderer), /Skill descriptions were shortened/);
+});
+
 test('a classified turn failure explains its recovery and offers Codex sign-in in place', async (t) => {
   let logins = 0;
   t.mock.method(api, 'prepareAgent', async (

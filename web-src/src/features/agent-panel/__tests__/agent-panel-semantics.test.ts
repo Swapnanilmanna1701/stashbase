@@ -97,3 +97,18 @@ test('a running turn marks the transcript busy', async () => {
     assert.equal(dom.byRole('log')[0].getAttribute('aria-busy'), 'true');
   });
 });
+
+test('a non-fatal runtime notice is polite status, not an alert', async () => {
+  await withDom(async (dom) => {
+    await dom.render(h(MessageList, {
+      ...emptyList,
+      blocks: [{ kind: 'notice', id: 'notice-1', text: 'Skill descriptions were shortened.' }],
+      turnActive: true,
+    }));
+
+    const [status] = dom.byRole('status');
+    assert.ok(status, 'the notice is exposed as status');
+    assert.equal(status.getAttribute('aria-live'), 'polite');
+    assert.equal(dom.byRole('alert').length, 0);
+  });
+});

@@ -148,10 +148,13 @@ test('Favorites pin above recents and removing the active folder returns to Home
     await app.page.getByRole('dialog', { name: 'Remove from Library?' }).getByRole('button', { name: 'Remove' }).click();
     await expect(app.page).toHaveTitle('StashBase');
     await expect(app.page.getByRole('button', { name: 'Select project-alpha folder root' })).toHaveCount(0);
-    await expect(app.page.getByText('Pick a folder from the Library menu in the top bar.')).toBeVisible();
+    await expect(app.page.getByText('Chat and search cover your whole library')).toBeVisible();
     // Removing the active folder creates a new bare-window context, which
     // makes its own AI Index offer before titlebar controls are interactive.
     await dismissEmbeddingKeyPrompt(app.page, { waitForOffer: true });
+    // Members remain but none is open, so the sidebar carries the Choose
+    // Folder invitation below New Chat.
+    await expect(app.page.getByRole('button', { name: 'Choose Folder' })).toBeVisible();
     // The removed folder is gone from the switcher menu; the remaining
     // member is still offered.
     await openFolderSwitcher(app.page);

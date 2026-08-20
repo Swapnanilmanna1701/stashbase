@@ -18,6 +18,7 @@ import {
 } from '@/common/lib/libraryScope';
 import { closeAgentSocketIntentionally, terminalAgentState } from '@/features/agent-panel/lib/connectionLifecycle';
 import {
+  appendRuntimeNotice,
   appendToolOutput,
   applyPermissionReply,
   completeToolCard,
@@ -697,6 +698,9 @@ export function useAgentSession({
         }
         break;
       }
+      case 'notice':
+        setBlocks((bs) => appendRuntimeNotice(bs, ev, nextBlockId()));
+        break;
       case 'turn-end': {
         const terminal = turnErrorTrackerRef.current.finish(ev.isError);
         if (terminal.duplicate) break;

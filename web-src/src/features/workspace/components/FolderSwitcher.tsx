@@ -2,15 +2,14 @@ import { useMemo, useRef, useState } from 'react';
 import { errorMessage } from '@/common/api/api';
 import { electronBridge } from '@/common/lib/electronBridge';
 import { folderRefsEqual } from '@/store/lib/folderPath';
-import { ChevronDownIcon, FolderIcon } from '@/common/components/icons';
-import { addFolderMenuItems } from '@/features/workspace/lib/addFolderMenu';
-import { basename, shortenFolderPath } from '@/common/lib/paths';
+import { ChevronDownIcon } from '@/common/components/icons';
+import { libraryMenuItems } from '@/features/workspace/lib/libraryMenuItems';
+import { basename } from '@/common/lib/paths';
 import { useAppActions, useWorkspace } from '@/store/contexts/AppContext';
 import { useLibraryMembership } from '@/features/workspace/hooks/useLibraryMembership';
 import { refreshLibraryMembership } from '@/features/workspace/lib/libraryMembership';
 import { useOpenFolderWatchdog } from '@/features/workspace/hooks/useOpenFolderWatchdog';
 import { Menu, type MenuItem } from '@/common/components/Menu';
-import type { LibraryListEntry } from '@/features/workspace/lib/libraryListPlan';
 
 export function FolderSwitcher() {
   const state = useWorkspace();
@@ -60,38 +59,19 @@ export function FolderSwitcher() {
       });
   }
 
-  const items = useMemo<{ pinned: MenuItem[]; list: MenuItem[] }>(() => {
-    const add = addFolderMenuItems(actions, bridge);
-    const row = (entry: LibraryListEntry): MenuItem => ({
-      label: basename(entry.path),
-      icon: <FolderIcon />,
-      detail: shortenFolderPath(entry.path, state.homeDir ?? ''),
-      checked: isCurrent(entry.path),
-      attention: state.libraryFolderStatuses[entry.path] === 'failed',
-      onSelect: () => {
-        setAnchor(null);
-        openFolder(entry.path);
-      },
-    });
-    const favorites = state.recent.filter((entry) => entry.favorite);
-    const rest = state.recent.filter((entry) => !entry.favorite);
-    /* "Library", not "Recent": the group is the WHOLE membership in
-     * recents order — a Recent label would imply an unlisted remainder.
-     * The add actions (plus the one hairline) ride `pinned` so they stay
-     * put while a long membership scrolls; group headings stay quiet
-     * labels with no extra hairlines (the pill menus' grouping rule). */
-    return {
-      pinned: [
-        ...add,
-        ...(add.length > 0 && state.recent.length > 0 ? [{ separator: true } as MenuItem] : []),
-      ],
-      list: [
-        ...(favorites.length > 0 ? [{ heading: 'Favorites' } as MenuItem, ...favorites.map(row)] : []),
-        ...(rest.length > 0 ? [{ heading: 'Library' } as MenuItem, ...rest.map(row)] : []),
-      ],
-    };
+  const items = useMemo<{ pinned: MenuItem[]; list: MenuItem[] }>(() => libraryMenuItems({
+    actions,
+    bridge,
+    entries: state.recent,
+    homeDir: state.homeDir ?? '',
+    attention: (path) => state.libraryFolderStatuses[path] === 'failed',
+    isCurrent,
+    onPick: (path) => {
+      setAnchor(null);
+      openFolder(path);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- openFolder/isCurrent are stable per render inputs below
-  }, [actions, bridge, activePath, state.homeDir, state.libraryFolderStatuses, state.recent]);
+  }), [actions, bridge, activePath, state.homeDir, state.libraryFolderStatuses, state.recent]);
 
   const label = openingFolder
     ? `Opening ${openingFolder.name}…`

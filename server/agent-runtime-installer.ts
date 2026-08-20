@@ -483,7 +483,59 @@ export async function installClaude(
     );
   }
   verifyExecutable(executable, 'Claude Code', agentCliEnv());
+  // Unlike Codex's Windows installer, `claude.exe install` leaves its bin
+  // dir off the user Path, so the CLI would be invisible to the user's own
+  // terminal (StashBase discovery scans the directory and is unaffected).
+  if (process.platform === 'win32') ensureWindowsClaudeOnUserPath(update);
   update({ progress: 1, message: 'Claude Code installed.' });
+}
+
+const WINDOWS_LOCAL_BIN_RAW = '%USERPROFILE%\\.local\\bin';
+
+/** Additively repair the per-user Path so a fresh Claude install is usable
+ * from the user's own terminal. Reads the raw (unexpanded) registry value,
+ * appends the raw `%USERPROFILE%` entry only when no existing entry expands
+ * to the same directory, writes back as REG_EXPAND_SZ so other entries keep
+ * their variable forms, and broadcasts the environment change so newly
+ * opened shells see it. Never uses `setx` (it truncates at 1024 chars) and
+ * never removes or reorders entries. */
+export function windowsUserPathRepairScript(rawEntry = WINDOWS_LOCAL_BIN_RAW): string {
+  return [
+    '$ErrorActionPreference = "Stop"',
+    `$entry = '${rawEntry}'`,
+    'if (-not (Test-Path HKCU:\\Environment)) { $null = New-Item -Path HKCU:\\Environment }',
+    '$key = Get-Item HKCU:\\Environment',
+    "$raw = [string]$key.GetValue('Path', '', 'DoNotExpandEnvironmentNames')",
+    "$expandedEntry = [Environment]::ExpandEnvironmentVariables($entry).TrimEnd('\\')",
+    '$has = $false',
+    "foreach ($part in ($raw -split ';')) {",
+    "  if ($part -and ([Environment]::ExpandEnvironmentVariables($part).TrimEnd('\\') -ieq $expandedEntry)) { $has = $true }",
+    '}',
+    'if (-not $has) {',
+    "  $next = if ($raw) { $raw.TrimEnd(';') + ';' + $entry } else { $entry }",
+    "  Set-ItemProperty -Path HKCU:\\Environment -Name Path -Value $next -Type ExpandString",
+    '}',
+    '$signature = \'[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)] public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);\'',
+    '$native = Add-Type -MemberDefinition $signature -Name PathBroadcast -Namespace StashBase -PassThru',
+    '$result = [UIntPtr]::Zero',
+    '$null = $native::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result)',
+  ].join('\r\n');
+}
+
+function ensureWindowsClaudeOnUserPath(update: (next: ProgressUpdate) => void): void {
+  const shell = resolveCodexInstallerShell();
+  const result = spawnSync(
+    shell.command,
+    ['-NoProfile', '-NonInteractive', '-Command', windowsUserPathRepairScript()],
+    { encoding: 'utf8', timeout: 15_000, windowsHide: true },
+  );
+  if (result.status === 0) {
+    update({ message: 'Added %USERPROFILE%\\.local\\bin to your PATH — open a new terminal to use claude.' });
+  } else {
+    // The install itself succeeded and StashBase can use it either way;
+    // terminal visibility falls back to the manual step.
+    update({ message: 'Claude Code installed. To use it from a terminal, add %USERPROFILE%\\.local\\bin to your PATH.' });
+  }
 }
 
 function claudeInstallerScriptRunner(
@@ -800,8 +852,13 @@ export function agentPowerShellInstallerScript(
   bootstrapLines: readonly string[],
 ): string {
   const bootstrap = [...bootstrapLines, ''].join('\r\n');
+  // PowerShell requires `param(...)` to be the script's first statement, so
+  // the bootstrap must insert AFTER the parameter declaration. Codex declares
+  // `[CmdletBinding()]` before its block; Claude opens with a bare multi-line
+  // `param(` whose closing parenthesis starts its own line. Prepending the
+  // bootstrap ahead of a param block turns `param` into an unknown command.
   const parameterBlock = installerScript.match(
-    /^(?:\uFEFF)?\s*\[CmdletBinding\(\)\]\s*\r?\nparam\([\s\S]*?\r?\n\)\s*\r?\n/,
+    /^(?:\uFEFF)?\s*(?:\[CmdletBinding\(\)\]\s*\r?\n)?param\([\s\S]*?\r?\n\)\s*\r?\n/,
   )?.[0];
   if (!parameterBlock) return bootstrap + installerScript;
   return parameterBlock + bootstrap + installerScript.slice(parameterBlock.length);

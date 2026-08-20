@@ -66,6 +66,10 @@ export type AgentServerEvent =
    * updates its connected scope and the owning window selects the folder. */
   | { t: 'scope-changed'; scope: { kind: 'folder'; path: string } }
   | { t: 'turn-end'; isError: boolean }
+  /** A runtime advisory that does not fail startup, the active turn, or the
+   * session. Adapters preserve this separately from terminal errors so the
+   * renderer never has to infer severity from provider prose. */
+  | { t: 'notice'; message: string }
   /** `failure` is present only when the adapter classified the message into
    * a turn-failure kind; unclassified errors keep the bare shape. */
   | { t: 'error'; message: string; failure?: AgentTurnFailure }

@@ -105,6 +105,16 @@ test('a turn with no assistant or error block is all work and no answer', () => 
   assert.deepEqual(settledReplySections([]), { workBlocks: [], answerBlocks: [] });
 });
 
+test('a notice without a final answer remains visible outside the collapsed work trace', () => {
+  const work = thinking('thinking-1');
+  const notice: Block = { kind: 'notice', id: 'notice-1', text: 'Configuration needs attention.' };
+
+  assert.deepEqual(settledReplySections([work, notice]), {
+    workBlocks: [work],
+    answerBlocks: [notice],
+  });
+});
+
 test('the copied reply is every assistant block in order, ignoring the work', () => {
   const text = turnReplyText({
     key: 'u1',

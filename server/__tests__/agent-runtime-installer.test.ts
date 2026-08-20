@@ -17,6 +17,7 @@ import {
   resolveClaudeInstallerShell,
   resolveCodexInstallerShell,
   verifyAgentExecutable,
+  windowsUserPathRepairScript,
   type AgentBootstrapDependencies,
 } from '../agent-runtime-installer.ts';
 import {
@@ -409,6 +410,23 @@ test('Claude install reports a missing executable without a fabricated ENOENT', 
   }
 });
 
+test('the Windows user-Path repair is additive, raw-form-preserving, and setx-free', () => {
+  const script = windowsUserPathRepairScript();
+  // Reads the raw value so %VAR% entries elsewhere in Path are never expanded
+  // in place, and writes back as REG_EXPAND_SZ.
+  assert.ok(script.includes("'DoNotExpandEnvironmentNames'"));
+  assert.ok(script.includes('-Type ExpandString'));
+  // Appends the raw entry only when no existing entry expands to the same
+  // directory; never rewrites or removes entries, never truncates via setx.
+  assert.ok(script.includes("$entry = '%USERPROFILE%\\.local\\bin'"));
+  assert.ok(script.includes('if (-not $has)'));
+  assert.ok(script.includes("$raw.TrimEnd(';') + ';' + $entry"));
+  assert.doesNotMatch(script, /setx/i);
+  // Broadcasts WM_SETTINGCHANGE so shells opened from Explorer see it.
+  assert.ok(script.includes('SendMessageTimeout'));
+  assert.ok(script.includes('"Environment"'));
+});
+
 test('Claude verifier failures surface as the installation failure', async () => {
   const verifierFailure = new Error('Claude verifier timed out after 20 seconds.');
   mock.method(globalThis, 'fetch', async () => new Response('#!/bin/bash\ntrue\n'));
@@ -527,6 +545,31 @@ test('PowerShell bootstrap strips redirecting environment and never pins install
   const claudeInstaller = agentPowerShellInstallerScript('Write-Host "claude"', CLAUDE_PS1_BOOTSTRAP);
   assert.ok(claudeInstaller.includes('Remove-Item Env:\\ELECTRON_RUN_AS_NODE'));
   assert.ok(claudeInstaller.indexOf('$ErrorActionPreference') < claudeInstaller.indexOf('Write-Host "claude"'));
+});
+
+test('PowerShell bootstrap never lands ahead of a bare param block', () => {
+  // The real head of Claude's official install.ps1: a bare multi-line param
+  // block with nested parentheses and no [CmdletBinding()]. `param` must stay
+  // the first statement or PowerShell reports it as an unknown command.
+  const officialScript = [
+    'param(',
+    '    [Parameter(Position=0)]',
+    "    [ValidatePattern('^(stable|latest)$')]",
+    '    [string]$Target = "latest"',
+    ')',
+    '',
+    'Set-StrictMode -Version Latest',
+    '',
+  ].join('\r\n');
+  const installer = agentPowerShellInstallerScript(officialScript, CLAUDE_PS1_BOOTSTRAP);
+
+  assert.ok(installer.startsWith('param('));
+  const bootstrapAt = installer.indexOf('Remove-Item Env:\\ELECTRON_RUN_AS_NODE');
+  assert.ok(bootstrapAt > installer.indexOf('[string]$Target'));
+  assert.ok(bootstrapAt < installer.indexOf('Set-StrictMode'));
+  // The nested parenthesis inside [Parameter(Position=0)] must not be
+  // mistaken for the block's closing parenthesis.
+  assert.ok(installer.indexOf(')\r\n') > installer.indexOf('$Target'));
 });
 
 test('Windows PowerShell architecture failures explain the PowerShell 7 recovery', async () => {

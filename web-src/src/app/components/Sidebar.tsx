@@ -16,6 +16,7 @@ import { SidebarAccountRow } from '@/features/account';
 import { NewChatButton, ScopeHistoryButton } from '@/features/agent-panel';
 import { EmbeddingSetupCallout, UnsupportedFilesCallout } from '@/features/preparation';
 import {
+  ChooseFolderButton,
   FileTree,
   FolderMenu,
   RemoveFolderModal,
@@ -314,11 +315,12 @@ function ActiveFolderSection({ children }: { children?: React.ReactNode }) {
           )}
         </section>
       ) : (
-        /* NO-FOLDER ZONE — membership now lives in the titlebar's folder
-         * switcher ("Library ⌄"), so this window state carries either the
-         * zero-folder brand moment or a single quiet pointer at the
-         * switcher. One anchor, no competing list (visual-style: empty
-         * states name one deliberate anchor). */
+        /* NO-FOLDER ZONE — one invitation either way (visual-style: empty
+         * states name one deliberate anchor): an empty library gets the
+         * zero-folder brand moment, a populated one gets the scope line
+         * plus Choose Folder right below New Chat, where a chat-first
+         * user is already looking. Full membership stays in the titlebar
+         * switcher; neither state renders a competing list. */
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* Nothing before membership succeeds: `recent` starts [] while the
             * real list is still in flight, and rendering ZeroFolderState on
@@ -327,9 +329,16 @@ function ActiveFolderSection({ children }: { children?: React.ReactNode }) {
             * may settle the rest of the shell, but the membership poll keeps
             * retrying until this branch can make an authoritative claim. */}
           {!state.membershipLoaded ? null : state.recent.length === 0 ? <ZeroFolderState /> : (
-            <p className="m-0 px-4 pt-5 text-sm leading-snug text-muted-foreground">
-              Pick a folder from the Library menu in the top bar.
-            </p>
+            /* The action rides directly under New Chat as a sibling row
+             * on the same px-1.5 rail; the scope line hangs from the
+             * shared 38px label gutter below it, so nothing separates
+             * the two actions a bare window offers. */
+            <div className="flex flex-col gap-2 px-1.5 pb-4">
+              <ChooseFolderButton />
+              <p className="m-0 pr-2 pl-8 text-sm leading-snug text-muted-foreground">
+                No folder is open — Chat and search cover your whole library.
+              </p>
+            </div>
           )}
         </section>
       )}

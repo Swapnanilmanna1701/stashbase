@@ -26,6 +26,9 @@ export type Block =
   | { kind: 'user'; id: string; text: string; attachments?: Attachment[] }
   | { kind: 'assistant'; id: string; text: string }
   | { kind: 'thinking'; id: string; text: string }
+  /** Non-fatal runtime guidance. It remains transcript evidence without
+   * entering the session or turn failure state machines. */
+  | { kind: 'notice'; id: string; text: string }
   /** `failureKind` is the adapter's classification of a live turn failure;
    * replayed history renders the same error without it (plain message). */
   | { kind: 'error'; id: string; text: string; failureKind?: AgentTurnFailureKind }

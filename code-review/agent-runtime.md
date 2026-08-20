@@ -55,7 +55,10 @@
   script that masks the failure with exit code zero. A bootstrap inserted
   after the official parameter declaration strips redirecting environment
   (stale private pinning, the Electron node marker) and pins non-interactive
-  mode — it never assigns install paths. The Windows PowerShell child remains
+  mode — it never assigns install paths. The declaration may be Codex's
+  `[CmdletBinding()]` header or Claude's bare `param` block; `param` must
+  remain the script's first statement, so the bootstrap never precedes it.
+  The Windows PowerShell child remains
   attached so its close event cannot report success before the script host
   completes; Windows cancellation still terminates the full tree through
   `taskkill /T`. Temporary script cleanup never replaces that result.
@@ -64,7 +67,16 @@
   Claude's official script checksum-verifies the release and runs the
   binary's own `claude install`, which sets up the user-level launcher; its
   POSIX form requires bash, so the Claude installer shell resolves to
-  `/bin/bash` where Codex uses `/bin/sh`.
+  `/bin/bash` where Codex uses `/bin/sh`. On Windows, `claude.exe install`
+  leaves its bin dir off the user Path, so a successful Claude install
+  repairs the per-user Path additively: the raw
+  `%USERPROFILE%\.local\bin` entry is appended only when no existing entry
+  expands to that directory, the value is written back as REG_EXPAND_SZ so
+  other entries keep their variable forms, the change is broadcast so new
+  shells see it, and nothing is ever removed, reordered, or written through
+  truncating `setx`. A failed repair stays a note — the install itself
+  remains successful and StashBase discovery is unaffected. POSIX PATH
+  remains provider-owned.
   System discovery checks the official user-level locations directly
   (`~/.local/bin` on every platform, the official Windows standalone bin
   under LocalAppData), so both a StashBase-run install and one completed
@@ -176,6 +188,12 @@ assumed CLI versions.
 - Runtime errors settle only the matching active turn once. Retry-in-progress
   signals do not become permanent failures; repeated or late terminal events
   are ignored.
+- Native advisory notifications normalize to the shared non-fatal `notice`
+  event, never `error`. Codex `warning`, `guardianWarning`, and
+  `configWarning` preserve their message (including structured configuration
+  summary/details) without settling a turn or changing session readiness.
+  The Adapter assigns this classification from native event structure; the
+  renderer never parses provider prose to recover severity.
 - Turn-scoped runtime errors carry a structured failure kind — rate-limit,
   quota, auth-expired, or network — classified once in the adapters through
   the shared classifier; an unmatched message stays a plain error. The

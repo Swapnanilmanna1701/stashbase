@@ -898,6 +898,58 @@ test('Codex Session failed turn completed with message preserves it', async (t) 
   session.dispose();
 });
 
+test('Codex Session preserves native warnings as non-fatal notices', async (t) => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-codex-notice-'));
+  runWithWindowId('notice-window', () => setCurrentFolder(folder));
+  t.after(() => {
+    runWithWindowId('notice-window', () => clearCurrentFolder());
+    fs.rmSync(folder, { recursive: true, force: true });
+  });
+
+  const ws = new FakeWebSocket();
+  const native = catalogProcess();
+  const session = new CodexSession(
+    ws as unknown as WebSocket,
+    'notice-window',
+    undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+    () => native.proc as unknown as ChildProcessWithoutNullStreams,
+  );
+  session.begin();
+  await settle();
+
+  native.proc.stdout.write(`${JSON.stringify({
+    method: 'guardianWarning',
+    params: {
+      threadId: 'thread-1',
+      message: 'Automatic approval review approved (risk: low, authorization: high).',
+    },
+  })}\n`);
+  native.proc.stdout.write(`${JSON.stringify({
+    method: 'warning',
+    params: {
+      threadId: 'thread-1',
+      message: 'Skill descriptions were shortened to fit the skills context budget.',
+    },
+  })}\n`);
+  native.proc.stdout.write(`${JSON.stringify({
+    method: 'configWarning',
+    params: {
+      summary: 'Configuration needs attention.',
+      details: 'One setting was ignored.',
+    },
+  })}\n`);
+  await settle();
+
+  const events = ws.sent.map((item) => JSON.parse(item) as { t: string; message?: string });
+  assert.deepEqual(events.filter((event) => event.t === 'notice'), [
+    { t: 'notice', message: 'Automatic approval review approved (risk: low, authorization: high).' },
+    { t: 'notice', message: 'Skill descriptions were shortened to fit the skills context budget.' },
+    { t: 'notice', message: 'Configuration needs attention.\n\nOne setting was ignored.' },
+  ]);
+  assert.deepEqual(events.filter((event) => event.t === 'error'), []);
+  session.dispose();
+});
+
 test('Codex Session classified turn failure carries its failure kind', async (t) => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'stashbase-codex-err-kind-'));
   runWithWindowId('err-kind-window', () => setCurrentFolder(folder));

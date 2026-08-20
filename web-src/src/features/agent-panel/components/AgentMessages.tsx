@@ -169,7 +169,7 @@ interface ReplyHandlers {
 
 /** Render a run of reply blocks: consecutive completed/running tool blocks
  * collapse into one ToolActivityGroup; everything else (thinking, assistant
- * prose, errors, and awaiting-permission tools) renders inline. Permission
+ * prose, notices, errors, and awaiting-permission tools) renders inline. Permission
  * requests stay OUT of the groups so their Allow/Reject controls are never
  * hidden by a collapse. */
 function renderReplyBlocks(blocks: Block[], liveBlockId: string | null, h: ReplyHandlers): ReactNode {
@@ -357,6 +357,12 @@ function BlockView({ block, live, handlers }: {
       return <AssistantBlock text={block.text} onOpenArtifact={handlers.onOpenArtifact} />;
     case 'thinking':
       return <ThinkingView text={block.text} active={live} />;
+    case 'notice':
+      return (
+        <StatusMessage tone="warning" className="text-sm leading-normal whitespace-pre-wrap">
+          {block.text}
+        </StatusMessage>
+      );
     case 'error': {
       // A classified live failure explains its recovery; anything else —
       // including replayed history, which carries no kind — stays a plain

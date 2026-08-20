@@ -76,6 +76,10 @@
   jump-to-latest control appears.
 - A terminal failure creates at most one persistent turn explanation, preferring
   the runtime's specific message. Record it before advancing queued follow-ups.
+- A non-fatal runtime notice appends transcript evidence without refreshing
+  runtime failure state, explaining a turn error, or closing a session when it
+  arrives before readiness. It uses polite warning semantics rather than an
+  alert and remains visible when there is no final answer to carry the turn.
 - A classified turn failure renders as a recovery card whose action follows the
   adapter-assigned kind only (see the turn-failure contract in
   [Agent Runtime](agent-runtime.md#protocol-boundary)); guidance copy and the

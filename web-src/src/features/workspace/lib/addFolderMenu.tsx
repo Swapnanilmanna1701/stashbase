@@ -62,11 +62,13 @@ export function addFolderMenuItems(
 }
 
 /**
- * Titlebar folder switcher — the ONE home for moving between library
- * folders (Trae/VS Code workspace-switcher register, placed right of the
- * search control). The trigger carries the window's folder identity
- * ("design-docs ⌄", or "Library ⌄" with no folder open), so the identity
- * survives a sidebar collapse; the menu lists the add-folder actions on
- * top and the whole membership below (favorites first, current checked,
- * needs-attention members carrying the quiet warning dot).
+ * Titlebar folder switcher — the standing home for moving between
+ * library folders (Trae/VS Code workspace-switcher register, placed
+ * right of the search control). The trigger carries the window's folder
+ * identity ("design-docs ⌄", or "Library ⌄" with no folder open), so
+ * the identity survives a sidebar collapse; the menu lists the
+ * add-folder actions on top and the whole membership below (favorites
+ * first, current checked, needs-attention members carrying the quiet
+ * warning dot). The menu's content is built once in `libraryMenuItems`;
+ * the sidebar's no-folder Choose Folder invitation opens the same menu.
  */

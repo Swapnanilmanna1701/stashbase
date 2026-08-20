@@ -47,13 +47,21 @@ export function tailBlockSpeaks(blocks: Block[]): boolean {
 }
 
 /** Split a settled turn: the last assistant answer OR terminal error is the
- * answer, everything before it is the collapsible work trace. Hiding a
- * terminal error in the work trace leaves a failed turn unexplained. */
+ * answer, everything before it is the collapsible work trace. If neither
+ * exists, keep non-fatal notices visible while folding ordinary work. Hiding
+ * either class of status would leave the turn or startup state unexplained. */
 export function settledReplySections(blocks: Block[]): { workBlocks: Block[]; answerBlocks: Block[] } {
   for (let i = blocks.length - 1; i >= 0; i--) {
     if (blocks[i].kind === 'assistant' || blocks[i].kind === 'error') {
       return { workBlocks: blocks.slice(0, i), answerBlocks: blocks.slice(i) };
     }
+  }
+  const answerBlocks = blocks.filter((block) => block.kind === 'notice');
+  if (answerBlocks.length > 0) {
+    return {
+      workBlocks: blocks.filter((block) => block.kind !== 'notice'),
+      answerBlocks,
+    };
   }
   return { workBlocks: blocks, answerBlocks: [] };
 }

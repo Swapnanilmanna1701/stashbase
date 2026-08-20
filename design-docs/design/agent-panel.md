@@ -38,6 +38,9 @@ a transcript-centered file manager.
 - Streaming, tool activity, permissions, attachments, skills, recovery, and
   file artifacts remain inspectable. Editing and resending an earlier prompt
   stops conflicting active work before beginning the new turn.
+- Native runtime advisories — including automatic-review, skill-context, and
+  configuration warnings — remain inspectable as non-fatal notices. They do
+  not close Chat, fail a turn, or masquerade as recovery-requiring errors.
 - Attachment labels preserve user-visible Unicode filenames from selection or
   drop through the sent transcript and restored history.
 - Source and attachment access follows the
@@ -77,6 +80,9 @@ a transcript-centered file manager.
   does not — and automatically retries the failed message, answering when
   the recovery worked and showing a fresh card when it did not. Recovery
   follows the failure's classified kind, never message prose.
+- Runtime notices and failures remain distinct protocol facts. Notices use a
+  polite warning presentation and stay visible when no final answer follows;
+  only failures enter startup, turn, or session recovery.
 - The selected permission mode governs which actions the runtime approves on
   its own. Every approval it surfaces — permission, deletion, command, network,
   or broader filesystem — is an explicit user decision; the panel never answers

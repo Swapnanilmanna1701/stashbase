@@ -30,7 +30,10 @@ manager, or a primary graph-navigation tool.
   workspace distinguishes an empty library from an existing library awaiting
   selection, and claims neither while membership is still loading: the
   empty-library invitation appears only once the library is confirmed empty,
-  never as a launch flash on a populated library.
+  never as a launch flash on a populated library. A populated library awaiting
+  selection states that Chat and search cover the whole library and offers one
+  Choose Folder invitation beneath New Chat, opening the same membership menu
+  the titlebar switcher serves.
 - A signed-in account is recognizable by its Google display name and avatar in
   Files, with the full email retained in the account menu. Missing or failed
   profile display data falls back without changing account controls; signed

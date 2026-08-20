@@ -14,6 +14,12 @@ import type { Block, ToolBlock } from '@/features/agent-panel/lib/types';
 
 type ServerEventOf<T extends AgentServerEvent['t']> = Extract<AgentServerEvent, { t: T }>;
 
+/** Preserve an advisory in the transcript without giving it any lifecycle
+ * consequences. In particular, this never explains or settles a turn error. */
+export function appendRuntimeNotice(blocks: Block[], ev: ServerEventOf<'notice'>, id: string): Block[] {
+  return [...blocks, { kind: 'notice', id, text: ev.message }];
+}
+
 /** A tool call started: append its card in the running state. */
 export function openToolCard(blocks: Block[], ev: ServerEventOf<'tool'>): Block[] {
   return [...blocks, { kind: 'tool', id: ev.id, name: ev.name, input: ev.input, status: 'running' }];
