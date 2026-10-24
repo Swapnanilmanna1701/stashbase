@@ -99,6 +99,7 @@ export function filesApi(overrides: Partial<FilesPort> = {}): FilesPort {
 export function projectApi(overrides: Partial<ProjectRegistryPort> = {}): ProjectRegistryPort {
   return {
     load: vi.fn(async () => projectRegistrySnapshot()),
+    setMathMode: vi.fn(async () => projectRegistrySnapshot()),
     openFolder: vi.fn(async () => projectRegistrySnapshot()),
     removeFolder: vi.fn(async () => projectRegistrySnapshot({ activeFolder: null, projects: [] })),
     ...overrides,

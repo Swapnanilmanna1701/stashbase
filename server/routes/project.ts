@@ -25,6 +25,7 @@ import {
   removeRecentAsync,
   openProjectFolder,
   setRecentFavorite,
+  setProjectMathMode,
 } from '../folder.ts';
 import { filesystemPath } from '../filesystem-path.ts';
 import { forgetFolderTurnChanges } from '../turn-changes.ts';
@@ -37,6 +38,7 @@ import { deleteDerivedForSource, deleteDerivedUnderFolder, type DerivedCleanupSt
 import { stopAgentRuntimesForFolder } from '../agent-contract.ts';
 import {
   projectOpenFolderRequestSchema,
+  projectMathModeRequestSchema,
   projectRemoveFolderRequestSchema,
 } from '../../shared/protocols/http/project.ts';
 import { GitHubImportError, importPublicGitHubRepository } from '../github-import.ts';
@@ -234,6 +236,23 @@ export function mount(app: express.Express): void {
   app.delete('/api/github/import/:operationId', (req, res) => {
     imports.cancel(currentWindowId(), req.params.operationId, { status: 499, body: { code: 'IMPORT_CANCELLED', error: 'The import was cancelled.' } });
     res.json({ ok: true });
+  });
+
+  app.post('/api/projects/math-mode', async (req, res) => {
+    const parsed = projectMathModeRequestSchema.safeParse(req.body);
+    if (!parsed.success || !path.isAbsolute(parsed.data.path)) {
+      res.status(400).json({ error: 'An absolute project path and boolean enabled are required.' });
+      return;
+    }
+    try {
+      if (!setProjectMathMode(parsed.data.path, parsed.data.enabled)) {
+        res.status(404).json({ error: 'Project is no longer registered.' });
+        return;
+      }
+      res.json(await getProjectRegistrySnapshot());
+    } catch (err: unknown) {
+      sendFolderOperationError(res, err);
+    }
   });
 
   // Star / unstar a member folder. Pure project metadata — never touches

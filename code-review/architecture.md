@@ -1221,9 +1221,15 @@ registered host boundaries; renderer shared types are a different layer.
   synchronizer; anchor updates must not reparse prose or interrupt IME composition.
   The sole double-cast exemption is its Find controller's structural DOM corpus and guarded
   CSS Highlight probe; other exceptions need their code-owned rationale.
-- Markdown's `math.ts` owns the double-dollar math rule and code-block preview.
-  Single-dollar prices remain prose; math serialization retains double-dollar
-  blocks and explicit `math` / `latex` fences.
+- Markdown's `math.ts` owns project-aware math parsing, typing, and code-block
+  preview. Single dollars are literal unless the registered project's `mathMode`
+  preference is explicitly true. App composition supplies the confirmed setting
+  to Documents and Chat; foreign/external documents do not inherit it. The strict
+  project preference route validates membership and persists before publication.
+  Registry refresh converges peer windows. Reparse waits for held edits, dirty
+  buffers, and revision review to settle; it never publishes an edit by itself.
+  Math serialization retains double-dollar blocks and explicit `math` / `latex`
+  fences. Changing the parser currently rebuilds its editor and resets undo.
 - Inline review runs Milkdown's diff plugin, registered directly by
   `revision-adapter.ts`. `@milkdown/plugin-diff` is patched under `patches/` so a
   per-change Reject also resolves a pure deletion, which holds no span in the

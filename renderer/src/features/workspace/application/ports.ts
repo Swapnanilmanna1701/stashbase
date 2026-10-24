@@ -25,6 +25,11 @@ type ProjectFolderPickerResult =
   | { status: 'selected'; folderPath: string };
 
 export interface ProjectRegistryPort {
+  setMathMode(
+    path: string,
+    enabled: boolean,
+    signal: AbortSignal,
+  ): Promise<ProjectRegistrySnapshot>;
   load(signal: AbortSignal): Promise<ProjectRegistrySnapshot>;
   openFolder(path: string, signal: AbortSignal): Promise<ProjectRegistrySnapshot>;
   removeFolder(path: string, signal: AbortSignal): Promise<ProjectRegistrySnapshot>;

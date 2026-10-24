@@ -1,5 +1,6 @@
 /** Composes the window title row across welcome, document, and Chat states. */
 import { AnimatePresence, motion } from 'framer-motion';
+import type { ReactNode } from 'react';
 
 import type { SidebarMode } from '@/app/composition/commands/use-workspace-commands';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ export function WorkspaceTitlebar({
   documents,
   hasActiveFolder,
   mode,
+  mathControl,
   newTab,
   onToggleChatPane,
   sidebarNotices,
@@ -64,6 +66,7 @@ export function WorkspaceTitlebar({
   /** The sidebar mode the collapsed column was last in, which is what the
    *  arrows here step: the open Chats, or else the document history. */
   mode: SidebarMode;
+  mathControl?: ReactNode;
   /** The New tab the strip's plus opens. */
   newTab: NewTab;
   onToggleChatPane(): void;
@@ -201,6 +204,7 @@ export function WorkspaceTitlebar({
           )}
         </AnimatePresence>
       </div>
+      <div className="workspace-titlebar-controls shrink-0">{mathControl}</div>
       {hasActiveFolder && !chatHasCard ? (
         <div className="workspace-titlebar-controls shrink-0">
           <Tooltip content={chatPaneLabel} side="bottom">

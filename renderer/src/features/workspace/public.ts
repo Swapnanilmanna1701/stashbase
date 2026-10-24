@@ -10,6 +10,7 @@
 export { useWorkspace } from './hooks/use-workspace';
 export { useFiles } from './hooks/use-files';
 export { useHiddenFiles } from './hooks/use-hidden-files';
+export { ProjectMathToggle } from './ui/project-math-toggle';
 export { useProject } from './hooks/use-project';
 export { useProjectLifecycle } from './hooks/use-project-lifecycle';
 export {

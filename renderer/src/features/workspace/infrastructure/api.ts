@@ -5,6 +5,7 @@ import type { HttpClient } from '@/platform/http/client';
 import {
   projectFailureSchema,
   projectOpenFolderRequestSchema,
+  projectMathModeRequestSchema,
   projectRemoveFolderRequestSchema,
   projectRegistrySnapshotSchema,
 } from '@/protocols/http/project';
@@ -16,6 +17,7 @@ function mapSnapshot(snapshot: ProjectRegistrySnapshotWire): ProjectRegistrySnap
     homeDirectory: snapshot.homeDir,
     projects: snapshot.recent.map((member) => ({
       favorite: member.favorite === true,
+      ...(member.mathMode === true ? { mathMode: true } : {}),
       openedAt: member.openedAt,
       path: member.path,
     })),
@@ -53,6 +55,12 @@ export function createProjectRegistryAdapter(client: HttpClient): ProjectRegistr
 
   return {
     load: (signal) => snapshot('/api/projects', signal),
+    setMathMode: (path, enabled, signal) =>
+      snapshot(
+        '/api/projects/math-mode',
+        signal,
+        projectMathModeRequestSchema.parse({ path, enabled }),
+      ),
     openFolder: (path, signal) =>
       snapshot('/api/projects/open', signal, projectOpenFolderRequestSchema.parse({ path })),
     removeFolder: (path, signal) =>

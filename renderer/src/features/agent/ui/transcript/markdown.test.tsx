@@ -2,11 +2,31 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test';
 
+import { MathModeContext } from '@/shared/ui/math-mode';
+
 import { AgentMarkdown } from './markdown';
 
 afterEach(cleanup);
 
 describe('Agent Markdown', () => {
+  it('follows the project math mode while keeping escapes and code literal', () => {
+    const markdown = 'Formula $x^2$; literal \\$5; `code $y$`';
+    const { container, rerender } = render(
+      <MathModeContext value={{ folderPath: '/project', enabled: true }}>
+        <AgentMarkdown markdown={markdown} />
+      </MathModeContext>,
+    );
+    expect(container.querySelectorAll('math')).toHaveLength(1); // dom-contract: accessible formula output
+    expect(container.textContent).toContain('literal $5');
+    expect(container.textContent).toContain('code $y$');
+    rerender(
+      <MathModeContext value={{ folderPath: '/other', enabled: false }}>
+        <AgentMarkdown markdown={markdown} />
+      </MathModeContext>,
+    );
+    expect(container.querySelectorAll('math')).toHaveLength(0); // dom-contract: project without opt-in
+  });
+
   it('renders structured GFM instead of exposing source punctuation', () => {
     render(
       <AgentMarkdown

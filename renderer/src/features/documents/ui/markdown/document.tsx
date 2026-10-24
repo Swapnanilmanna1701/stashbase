@@ -1,8 +1,4 @@
-/**
- * The Markdown surface. Reading and writer modes share one Milkdown editor
- * instance per tab so selection, history, and scroll survive a mode switch,
- * and the heading outline is published from the live document.
- */
+/** Retained Markdown editor with reading/writing modes and live outline. */
 import { languages } from '@codemirror/language-data';
 import { CrepeBuilder } from '@milkdown/crepe/builder';
 import { blockEdit } from '@milkdown/crepe/feature/block-edit';
@@ -31,6 +27,7 @@ import { cn } from '@/lib/utils';
 import type { SourceReference } from '@/shared/domain/source-reference';
 import { prefersReducedMotion } from '@/shared/runtime/appearance-surface';
 import { writeToClipboard } from '@/shared/ui/clipboard';
+import { useMathMode } from '@/shared/ui/math-mode';
 
 import { watchMarkdownChanges } from './changes';
 import { math } from './math';
@@ -57,17 +54,13 @@ import { useRevisionReview, type RevisionBinding } from './use-revision-review';
 import { attachWritingAids, createWordCounter, WordCount } from './writing-aids';
 
 type CreationState = 'creating' | 'failed' | 'ready';
-
 export interface MarkdownDocumentProps {
   active: boolean;
   canChangeMode: boolean;
   dirty: boolean;
-  /** Registers the surface's held edit with the document runtime. */
   holdEdits(flush: () => void): () => void;
   mode: MarkdownViewMode;
   name: string;
-  /** Ask Agent on the selection toolbar, with the exact selection. Absent
-   *  where no Agent sits beside the document. */
   onAskAgent?: ((selection: DocumentSelection) => void) | undefined;
   referencedPassages?: readonly DocumentSelection[] | undefined;
   onChange(value: string): void;
@@ -77,8 +70,6 @@ export interface MarkdownDocumentProps {
   navigation: DocumentNavigationRuntime;
   readingControl?: ReactNode;
   readOnly: boolean;
-  /** The review the document runtime holds, and what this surface reports
-   *  back to it. */
   revision: RevisionBinding;
   source: SourceReference;
   tabId: string;
@@ -107,6 +98,8 @@ export function MarkdownDocument({
   tabId,
   value,
 }: MarkdownDocumentProps) {
+  const mathMode = useMathMode(source.folderPath);
+  const [appliedMathMode, setAppliedMathMode] = useState(mathMode);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<CrepeBuilder | null>(null);
   const onChangeRef = useRef(onChange);
@@ -189,7 +182,7 @@ export function MarkdownDocument({
       .addFeature(toolbar, selectionToolbar({ askAgent: askAgentRun }))
       .addFeature(table)
       .addFeature(codeMirror, { copyText: 'Copy code', languages })
-      .addFeature(math);
+      .addFeature((instance) => math(instance, appliedMathMode));
     attachHeadingAnchors(editor);
     const releaseHighlights = attachHighlights(editor);
     const releaseReview = attachReview(editor);
@@ -217,6 +210,7 @@ export function MarkdownDocument({
         const next = frontmatterRef.current + markdown;
         // Seen here, the store's echo of it skips a second serialize in reconcile.
         observedValueRef.current = next;
+        valueRef.current = next;
         onChangeRef.current(next);
         updateHeadings();
       },
@@ -248,17 +242,30 @@ export function MarkdownDocument({
       stopCreation();
       releaseHeldEdits();
     };
-  }, [askAgentRun, attachHighlights, attachReview, attempt, navigation, tabId, wordCounter]);
+  }, [
+    appliedMathMode,
+    askAgentRun,
+    attachHighlights,
+    attachReview,
+    attempt,
+    navigation,
+    tabId,
+    wordCounter,
+  ]);
+
+  useEffect(() => {
+    if (appliedMathMode === mathMode || dirty || reviewActive) return;
+    // Flush a keystroke the document runtime has not seen before rebuilding.
+    if (changesRef.current?.flush()) return;
+    setAppliedMathMode(mathMode);
+  }, [appliedMathMode, dirty, mathMode, reviewActive]);
 
   useEffect(() => {
     editorRef.current?.setReadonly(readOnly);
   }, [readOnly]);
-
   useEffect(() => {
     const editor = editorRef.current;
-    // An open review holds the document against the version it was computed
-    // for, and nothing accepted yet leaves the buffer clean, so a background
-    // reconcile would otherwise replace the text the review describes.
+    // Review holds its original version even while the buffer is still clean.
     if (!editor || creationState !== 'ready' || dirty || reviewActive) return;
     // A held edit is dirty work this render has not seen yet.
     if (changesRef.current?.flush()) return;
@@ -274,7 +281,6 @@ export function MarkdownDocument({
       refreshHeadingsRef.current();
     });
   }, [creationState, dirty, reviewActive, value]);
-
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -298,13 +304,11 @@ export function MarkdownDocument({
     host.addEventListener('click', routeLink);
     return () => host.removeEventListener('click', routeLink);
   }, []);
-
   useEffect(() => {
     if (!active || creationState !== 'ready') return;
     const owner = registrationOwnerRef.current;
     return navigation.claimOutline(tabId, owner);
   }, [active, creationState, navigation, tabId]);
-
   useEffect(() => {
     if (!active || creationState !== 'ready') return;
     navigation.publishOutline(
@@ -320,7 +324,6 @@ export function MarkdownDocument({
         ),
     );
   }, [active, activeHeading, creationState, headings, navigation, tabId]);
-
   useEffect(() => {
     if (!active || creationState !== 'ready' || headings.length === 0) return;
     const host = hostRef.current;
@@ -340,7 +343,6 @@ export function MarkdownDocument({
     update();
     return () => scroller.removeEventListener('scroll', update);
   }, [active, creationState, headings]);
-
   useEffect(() => {
     if (!active || creationState !== 'ready' || !pendingAnchor) return;
     const frame = requestAnimationFrame(() => {

@@ -45,6 +45,30 @@ describe('project API', () => {
     ).rejects.toMatchObject({ kind: 'unavailable', message: 'The project is unavailable.' });
   });
 
+  it('posts a strict project math preference and retains it in snapshots', async () => {
+    const request = vi.fn(async () => ({
+      status: 200,
+      body: {
+        current: null,
+        homeDir: '/project',
+        recent: [{ path: '/project/notes', openedAt: 'today', mathMode: true }],
+      },
+    }));
+    const signal = new AbortController().signal;
+    const result = await createProjectRegistryAdapter({ request }).setMathMode(
+      '/project/notes',
+      true,
+      signal,
+    );
+    expect(result.projects[0]?.mathMode).toBe(true);
+    expect(request).toHaveBeenCalledWith({
+      body: { path: '/project/notes', enabled: true },
+      method: 'POST',
+      path: '/api/projects/math-mode',
+      signal,
+    });
+  });
+
   it('posts validated removal and maps its authoritative snapshot', async () => {
     const client: HttpClient = {
       request: vi.fn(async () => ({

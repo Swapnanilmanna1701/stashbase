@@ -13,6 +13,7 @@ export function projectQuery(api: ProjectRegistryPort) {
   return {
     queryFn: ({ signal }: { signal: AbortSignal }) => api.load(signal),
     queryKey: workspaceQueryKeys.project,
+    refetchInterval: 10_000,
     retry: false,
     staleTime: 10_000,
   } as const;

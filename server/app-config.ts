@@ -41,6 +41,8 @@ export interface RecentFolder {
   openedAt: string;
   /** User-starred in the Welcome project list. Absent = not a favorite. */
   favorite?: boolean;
+  /** Opt in to single-dollar Markdown math for this project. */
+  mathMode?: boolean;
 }
 
 const DEFAULT_UPDATE_PREFERENCES: UpdatePreferences = {

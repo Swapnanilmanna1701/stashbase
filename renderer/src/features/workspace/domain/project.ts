@@ -8,6 +8,7 @@ export interface ActiveProjectFolder {
 
 interface RegisteredProject {
   favorite: boolean;
+  mathMode?: boolean;
   openedAt: string;
   path: string;
 }

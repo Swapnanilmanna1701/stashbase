@@ -63,6 +63,26 @@ test('startup and registration retain unavailable members and favorites', async 
   assert.deepEqual((await folder.getRecentFoldersAsync()).find((r) => r.path === unavailable), member);
 });
 
+test('math mode is persisted per project and survives registration without touching source', async () => {
+  const first = path.join(home, 'first');
+  const second = path.join(home, 'second');
+  for (const root of [first, second]) {
+    fs.mkdirSync(root);
+    await folder.registerProjectFolderAsync(root);
+  }
+  fs.writeFileSync(path.join(first, 'note.md'), '$x$ and \\$5');
+  assert.equal(folder.setProjectMathMode(first, true), true);
+  folder.setRecentFavorite(first, true);
+  await folder.registerProjectFolderAsync(first);
+  const persisted = JSON.parse(fs.readFileSync(path.join(fixture, '.stashbase', 'config.json'), 'utf8'));
+  assert.equal(persisted.recentFolders.find((r: { path: string }) => r.path === first).mathMode, true);
+  assert.equal(persisted.recentFolders.find((r: { path: string }) => r.path === second).mathMode, undefined);
+  assert.equal(folder.setProjectMathMode(path.join(home, 'missing'), true), false);
+  assert.equal(folder.setProjectMathMode(first, false), true);
+  assert.equal(config.readAppConfigStrict().recentFolders?.find((r) => r.path === first)?.mathMode, undefined);
+  assert.equal(fs.readFileSync(path.join(first, 'note.md'), 'utf8'), '$x$ and \\$5');
+});
+
 test('first launch and restart leave an empty home without registering projects', () => {
   fs.rmdirSync(home);
   folder.ensureFolderHome();

@@ -6,6 +6,7 @@ const folderNameSchema = z.string().min(1).max(255);
 
 const registeredProjectSchema = z.object({
   favorite: z.boolean().optional(),
+  mathMode: z.boolean().optional(),
   openedAt: z.string().trim().min(1).max(64),
   path: folderPathSchema,
 });
@@ -32,6 +33,11 @@ export const projectRemoveFolderRequestSchema = z
     path: folderPathSchema,
   })
   .strict();
+
+export const projectMathModeRequestSchema = z.object({
+  path: folderPathSchema,
+  enabled: z.boolean(),
+}).strict();
 
 export const projectFailureSchema = z.object({
   code: z.string().trim().min(1).max(64).optional(),

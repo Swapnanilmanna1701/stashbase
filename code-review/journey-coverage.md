@@ -875,6 +875,17 @@ The rendered surface was reviewed by eye. This isolated source-runtime probe
 does not establish Sogou-specific candidate-window behavior, disk saves, or
 packaged delivery.
 
+**Per-project math mode:** The project registry and titlebar toggle supply one
+confirmed preference to Documents and Chat. Focused route, registry, toggle,
+real Milkdown parsing/typing, and transcript tests cover persistence, validation,
+project isolation, escapes, and literal code. Parser changes defer dirty/reviewing
+documents. Selection and undo reset when the editor reparses.
+An isolated built macOS app pass at 1280×820, light appearance and reduced motion,
+verified default-off rendering, the visible toggle, immediate-edit save before
+reparse, escaped-dollar/code preservation, two independent projects, and a full
+host/Electron restart. Chat math is covered by renderer tests; this pass did not
+send a live provider request.
+
 **Currency and math (2026-10-08):** `ui/markdown/math.ts` replaces Crepe's
 single-dollar math interpretation. `math.test.ts` runs the real Milkdown editor
 and verifies price rendering/save preservation, inline double-dollar math, and

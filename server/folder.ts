@@ -457,6 +457,7 @@ function currentRecentFolder(value: RecentFolder): RecentFolder {
     path: value.path,
     openedAt: value.openedAt,
     ...(value.favorite === true ? { favorite: true } : {}),
+    ...(value.mathMode === true ? { mathMode: true } : {}),
   };
 }
 
@@ -490,7 +491,7 @@ async function prepareProjectRegistration(normalized: string) {
   const existing = list[matches.findIndex(Boolean)];
   const root = existing ? filesystemPath.absolute(existing.path) : normalized;
   config.recentFolders = [
-    { path: root, openedAt: new Date().toISOString(), ...(existing?.favorite === true ? { favorite: true } : {}) },
+    { ...existing, path: root, openedAt: new Date().toISOString() },
     ...list.filter((_, index) => !matches[index]),
   ];
   return { config, revision, root };
@@ -584,6 +585,19 @@ export function setRecentFavorite(absPath: string, favorite: boolean): boolean {
   if (!entry) return false;
   if (favorite) entry.favorite = true;
   else delete entry.favorite;
+  cfg.recentFolders = list;
+  writeConfigStrict(cfg);
+  return true;
+}
+
+/** Persist only an explicit opt-in, without touching project files. */
+export function setProjectMathMode(absPath: string, enabled: boolean): boolean {
+  const cfg = readConfigStrict();
+  const list = (cfg.recentFolders ?? []).map(currentRecentFolder);
+  const entry = list.find((value) => storedFolderPathEquals(value.path, absPath));
+  if (!entry) return false;
+  if (enabled) entry.mathMode = true;
+  else delete entry.mathMode;
   cfg.recentFolders = list;
   writeConfigStrict(cfg);
   return true;

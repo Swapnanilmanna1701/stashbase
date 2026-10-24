@@ -5,6 +5,7 @@ import { createDocumentNavigationRuntime } from '@/features/documents/applicatio
 
 const editorHarness = vi.hoisted(() => ({
   change: null as ((context: unknown, markdown: string, previous: string) => void) | null,
+  held: null as string | null,
   instances: [] as Array<{
     action: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
@@ -65,19 +66,76 @@ vi.mock('./changes', () => ({
     editorHarness.change = (_context, markdown) => {
       if (accepts()) report(markdown);
     };
-    return { flush: () => false, rebase: () => undefined };
+    return {
+      flush: () => {
+        if (editorHarness.held === null) return false;
+        const value = editorHarness.held;
+        editorHarness.held = null;
+        report(value);
+        return true;
+      },
+      rebase: () => undefined,
+    };
   },
 }));
 
-import { MarkdownDocument } from './document';
+import { MathModeContext } from '@/shared/ui/math-mode';
+
+import { MarkdownDocument, type MarkdownDocumentProps } from './document';
 
 afterEach(() => {
   cleanup();
   editorHarness.change = null;
+  editorHarness.held = null;
   editorHarness.instances.length = 0;
 });
 
 describe('Markdown document surface', () => {
+  it('flushes held text and waits for a clean document before changing its project parser', async () => {
+    const onChange = vi.fn();
+    const props: MarkdownDocumentProps = {
+      active: true,
+      canChangeMode: true,
+      dirty: false,
+      holdEdits: () => () => undefined,
+      mode: 'writer',
+      name: 'math.md',
+      onChange,
+      onNavigate: vi.fn(),
+      onModeChange: vi.fn(),
+      onOpenExternal: vi.fn(async () => true),
+      navigation: createDocumentNavigationRuntime('math'),
+      revision: { onPending: vi.fn(), state: { kind: 'idle' } },
+      readOnly: false,
+      source: { folderPath: '/project', path: 'math.md' },
+      tabId: 'math',
+      value: '$x$',
+    };
+    const view = (enabled: boolean, dirty = false, folderPath = '/project') => (
+      <MathModeContext value={{ folderPath, enabled }}>
+        <MarkdownDocument {...props} dirty={dirty} />
+      </MathModeContext>
+    );
+    const { rerender } = render(view(false));
+    await waitFor(() =>
+      expect(screen.getByRole('document').getAttribute('data-markdown-state')).toBe('ready'),
+    );
+    editorHarness.held = 'typed $x$';
+    rerender(view(true));
+    expect(onChange).toHaveBeenCalledWith('typed $x$');
+    expect(editorHarness.instances).toHaveLength(1);
+    rerender(view(true, true));
+    expect(editorHarness.instances).toHaveLength(1);
+    props.value = 'typed $x$';
+    rerender(view(true));
+    await waitFor(() => expect(editorHarness.instances).toHaveLength(2));
+    expect(onChange).toHaveBeenCalledOnce();
+    rerender(view(false, false, '/other'));
+    await waitFor(() => expect(editorHarness.instances).toHaveLength(3));
+    rerender(view(true, false, '/other'));
+    expect(editorHarness.instances).toHaveLength(3);
+  });
+
   it('names the read-only document canvas and offers its mode switch', () => {
     const navigation = createDocumentNavigationRuntime('tab-1');
     render(

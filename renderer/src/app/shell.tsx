@@ -32,10 +32,12 @@ import {
   useFiles,
   useHiddenFiles,
   useProject,
+  ProjectMathToggle,
   useWorkspace,
   useWorkspaceSession,
 } from '@/features/workspace/public';
 import { DEFAULT_PERSONA_ICON } from '@/shared/domain/persona-icon';
+import { MathModeContext } from '@/shared/ui/math-mode';
 
 import { usePreparationCommands } from './composition/commands/use-preparation-commands';
 import { useWorkspaceCommands } from './composition/commands/use-workspace-commands';
@@ -82,7 +84,6 @@ export function App({ dependencies }: { dependencies: AppDependencies }) {
 function WorkspaceWindow() {
   const [chatPaneOpen, setChatPaneOpen] = useState(true);
   const dependencies = useDependencies();
-  // Two adapter records this function hands on more than once.
   const { documents: docs, workspace: workspaceDeps } = dependencies;
   useAppearanceSurface(dependencies.settings.appearanceApi, dependencies.settings.setAppearance);
   const session = useWorkspaceSession(
@@ -110,6 +111,8 @@ function WorkspaceWindow() {
   const activeFolder = project?.activeFolder ?? null;
   const selectedPath = activeFolder?.path ?? null;
   const folderPath = workspace?.scope.folder.path ?? null;
+  const mathMode =
+    project?.projects.find((member) => member.path === folderPath)?.mathMode === true;
   const listing = useFiles(workspace, workspaceDeps.adapters.files).data;
   const status = useFolderStatus(dependencies.preparation.statusApi, folderPath).data ?? null;
   // Search by meaning exists only once the reader's own key is on. The
@@ -311,25 +314,27 @@ function WorkspaceWindow() {
         floatingNotices={notices.floating}
         notices={notices.strip}
         panes={
-          <WorkspacePanes
-            chatPaneOpen={chatPaneOpen}
-            agent={{ runtime }}
-            documents={documents}
-            workspace={workspace}
-            mode={chrome.navigator.mode}
-            onAskAgent={askAgent}
-            onBrowsePersonas={gallery.browsePersonas}
-            newTab={newTab}
-            onCreateDraft={newDraft}
-            onPrepare={preparation.prepare}
-            onReprocess={refresh.reprocess}
-            onReviewTurnChange={revisions.reviewTurnChange}
-            onShowDocuments={() => chrome.navigator.selectMode('documents')}
-            session={session}
-            settings={chrome.settings}
-            sources={sources}
-            status={status}
-          />
+          <MathModeContext value={{ folderPath: folderPath ?? '', enabled: mathMode }}>
+            <WorkspacePanes
+              chatPaneOpen={chatPaneOpen}
+              agent={{ runtime }}
+              documents={documents}
+              workspace={workspace}
+              mode={chrome.navigator.mode}
+              onAskAgent={askAgent}
+              onBrowsePersonas={gallery.browsePersonas}
+              newTab={newTab}
+              onCreateDraft={newDraft}
+              onPrepare={preparation.prepare}
+              onReprocess={refresh.reprocess}
+              onReviewTurnChange={revisions.reviewTurnChange}
+              onShowDocuments={() => chrome.navigator.selectMode('documents')}
+              session={session}
+              settings={chrome.settings}
+              sources={sources}
+              status={status}
+            />
+          </MathModeContext>
         }
         session={session}
         sidebar={
@@ -367,6 +372,16 @@ function WorkspaceWindow() {
             sidebarNotices={notices.cornerShown}
             documents={documents}
             hasActiveFolder={activeFolder !== null}
+            mathControl={
+              folderPath && (
+                <ProjectMathToggle
+                  key={folderPath}
+                  enabled={mathMode}
+                  folderPath={folderPath}
+                  port={workspaceDeps.adapters.project}
+                />
+              )
+            }
             mode={chrome.navigator.mode}
           />
         }

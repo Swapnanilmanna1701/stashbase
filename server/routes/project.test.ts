@@ -137,6 +137,21 @@ test('project routes return authoritative membership and open the selected folde
     path: selectedFolderPath,
   });
 
+  const setMath = (body: unknown) => fetch(`${baseUrl}/api/projects/math-mode`, {
+    body: JSON.stringify(body), headers, method: 'POST',
+  });
+  for (const body of [{ path: selectedFolder, enabled: 'true' }, { path: 'relative', enabled: true }, { path: selectedFolder }, { path: selectedFolder, enabled: true, extra: 1 }]) {
+    assert.equal((await setMath(body)).status, 400);
+  }
+  assert.equal((await setMath({ path: path.join(testHome, 'unregistered'), enabled: true })).status, 404);
+  const math = await setMath({ path: selectedFolder, enabled: true });
+  assert.equal(math.status, 200);
+  assert.equal((await math.json() as { recent: { mathMode?: boolean }[] }).recent[0]?.mathMode, true);
+  await fetch(`${baseUrl}/api/projects/open`, { body: JSON.stringify({ path: selectedFolder }), headers, method: 'POST' });
+  assert.equal((await folder.getProjectRegistrySnapshot()).recent[0]?.mathMode, true);
+  assert.equal((await setMath({ path: selectedFolder, enabled: false })).status, 200);
+  assert.equal((await folder.getProjectRegistrySnapshot()).recent[0]?.mathMode, undefined);
+
   const removed = await fetch(`${baseUrl}/api/projects/remove`, {
     body: JSON.stringify({ path: selectedFolder }),
     headers,

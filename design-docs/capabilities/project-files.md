@@ -223,9 +223,16 @@ passage is sent.
 Markdown frontmatter is outside the prose editor. A turn review that would change it is
 refused with a visible reason; its metadata is never silently omitted from a review.
 
-Markdown math uses double-dollar delimiters or `math` / `latex` fenced blocks.
-Single-dollar amounts remain ordinary text in Documents and Chat, including
-when a Markdown document is saved.
+Each project has a visible **Math** toggle shared by Documents and Chat, saved
+locally across restarts. It is off by default: single-dollar amounts remain
+ordinary text. With Math on, `$x$` renders a formula and `\$` writes a literal
+dollar sign. Code spans and fences retain their own syntax. Double-dollar
+formulas and `math` / `latex` blocks work in either mode.
+
+Changing Math mode never rewrites project files. An unsaved document or active
+revision review keeps its current parser until saving or ending review; clean
+documents reparse their source. This rebuild resets the Markdown editor's
+selection and undo history.
 
 File diffs, save-conflict comparisons, and agent tool approvals have their own
 flows. Other editable formats currently have no inline revision surface.
